@@ -44,3 +44,161 @@ a:hover {
   background-color: #fff;
   color: #000;
 }
+
+/* Blog typography */
+.blog-article {
+  color: #f9fafb;
+}
+
+.frontmatter-block {
+  position: relative;
+  margin: 0 0 2rem;
+  padding: 1.4rem 1rem 1rem;
+  border: 1px dashed #3f3f46;
+  background: #050505;
+}
+
+.frontmatter-label {
+  position: absolute;
+  top: -0.7rem;
+  left: 0.75rem;
+  background: #ffffff;
+  color: #000000;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+}
+
+.frontmatter-row {
+  display: grid;
+  grid-template-columns: 6.2rem 1fr;
+  gap: 0.8rem;
+  margin: 0.3rem 0;
+  line-height: 1.5;
+}
+
+.frontmatter-key {
+  color: #9ca3af;
+  text-transform: lowercase;
+}
+
+.frontmatter-key::after {
+  content: ":";
+}
+
+.frontmatter-value {
+  color: #f3f4f6;
+  overflow-wrap: anywhere;
+}
+
+.blog-content {
+  font-size: 1rem;
+}
+
+.blog-content > :first-child {
+  margin-top: 0;
+}
+
+.blog-content h1,
+.blog-content h2,
+.blog-content h3 {
+  margin-top: 2.75rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.blog-content h1 {
+  font-size: 1.9rem;
+}
+
+.blog-content h2 {
+  font-size: 1.45rem;
+  color: #ffffff;
+}
+
+.blog-content h3 {
+  font-size: 1.15rem;
+  color: #e5e7eb;
+}
+
+.blog-content p {
+  margin: 1rem 0;
+  color: #d1d5db;
+  line-height: 1.9;
+}
+
+.blog-content hr {
+  border: 0;
+  border-top: 1px solid #3f3f46;
+  margin: 3rem 0;
+}
+
+.blog-content hr + * {
+  margin-top: 1.75rem !important;
+}
+
+.blog-content ul,
+.blog-content ol {
+  margin: 1rem 0 1.5rem;
+  padding-left: 1.5rem;
+}
+
+.blog-content ul {
+  list-style: disc outside;
+}
+
+.blog-content ol {
+  list-style: decimal outside;
+}
+
+.blog-content li {
+  margin: 0.4rem 0;
+  color: #d1d5db;
+  display: list-item;
+}
+
+.blog-content a {
+  color: #ffffff;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.blog-content a:hover {
+  background-color: transparent;
+  color: #9ca3af;
+}
+
+.blog-content blockquote {
+  margin: 1.5rem 0;
+  padding: 0.2rem 1rem;
+  border-left: 3px solid #4b5563;
+  color: #cbd5e1;
+}
+
+.blog-content code {
+  font-size: 0.9em;
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.35rem;
+}
+
+.blog-content pre {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+  border: 1px solid #374151;
+  background: #0b0b0b;
+}
+
+.blog-content pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}

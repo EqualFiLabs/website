@@ -33,7 +33,7 @@ export default async function BlogIndex({
           href="/"
           className="font-bold tracking-widest text-xl hover:text-gray-400 transition-colors"
         >
-          EQUALFI_PROTO_V1
+          EQUALIS_V1
         </Link>
         <div className="text-sm uppercase tracking-widest text-gray-500">
           // TRANSMISSION_LOG
@@ -100,7 +100,7 @@ export default async function BlogIndex({
       <footer className="border-t border-white/20 bg-black px-4 py-6 text-xs text-gray-500 font-mono uppercase tracking-widest flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
         <div>// EQUALIS_TRANSMISSION_FEED</div>
         <div className="text-[0.6rem] md:text-xs text-gray-600">
-          BUILT FOR THE POST-ORACLE ERA · ALL SIGNAL, NO NOISE
+          UNIFIED LIQUIDTY - PROGRAMMABLE CREDIT
         </div>
       </footer>
     </div>

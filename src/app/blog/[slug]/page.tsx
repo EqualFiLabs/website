@@ -28,12 +28,24 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
           </a>
         </div>
 
-        <article className="prose prose-invert prose-lg max-w-none">
-          <h1>{postData.title}</h1>
-          <p className="lead font-mono text-sm border-l-2 border-white pl-4 text-gray-400">
-            {postData.excerpt}
-          </p>
-          <div dangerouslySetInnerHTML={{ __html: postData.contentHtml || "" }} />
+        <article className="blog-article">
+          <div className="frontmatter-block" aria-label="Post frontmatter">
+            <div className="frontmatter-label">frontmatter</div>
+            <div className="frontmatter-row">
+              <span className="frontmatter-key">title</span>
+              <span className="frontmatter-value">"{postData.title}"</span>
+            </div>
+            <div className="frontmatter-row">
+              <span className="frontmatter-key">date</span>
+              <span className="frontmatter-value">"{postData.date}"</span>
+            </div>
+            <div className="frontmatter-row">
+              <span className="frontmatter-key">excerpt</span>
+              <span className="frontmatter-value">"{postData.excerpt}"</span>
+            </div>
+          </div>
+
+          <div className="blog-content" dangerouslySetInnerHTML={{ __html: postData.contentHtml || "" }} />
         </article>
       </div>
     </div>
