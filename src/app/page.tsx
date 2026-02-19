@@ -25,6 +25,7 @@ export default function Home() {
             </a>
           </div>
           <Link href="/blog" className="hover:bg-white hover:text-black px-2 transition-colors">Transmissions</Link>
+          <Link href="/app" className="hover:bg-white hover:text-black px-2 transition-colors">App</Link>
           <a href="https://github.com/EqualFiLabs" target="_blank" className="hover:bg-white hover:text-black px-2 transition-colors">Source</a>
         </nav>
 
@@ -40,6 +41,7 @@ export default function Home() {
           <div className="absolute top-full left-0 right-0 bg-black border-b border-white/20 md:hidden">
             <nav className="flex flex-col p-4 gap-4 text-sm uppercase tracking-widest items-center">
               <Link href="/blog" className="hover:bg-white hover:text-black px-2 py-2 transition-colors" onClick={() => setMenuOpen(false)}>Transmissions</Link>
+              <Link href="/app" className="hover:bg-white hover:text-black px-2 py-2 transition-colors" onClick={() => setMenuOpen(false)}>App</Link>
               <a href="https://github.com/EqualFiLabs" target="_blank" className="hover:bg-white hover:text-black px-2 py-2 transition-colors">Source</a>
               <div className="flex gap-4 pt-4 border-t border-white/20 w-full justify-center">
                 <a href="https://discord.gg/brsMNDux4T" target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity" aria-label="Discord">
