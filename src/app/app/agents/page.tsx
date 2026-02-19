@@ -1,0 +1,934 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { encodePacked, isAddress, decodeEventLog, encodeFunctionData, erc721Abi } from "viem";
+import { useAccount, useWriteContract } from "wagmi";
+import { AppShell } from "../../app-shell";
+import { Card, Field, Input, Select, ActionButton, SectionHeader } from "../../app-components";
+import usePositionNFTs from "@/lib/hooks/usePositionNFTs";
+import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
+import { useToasts } from "@/components/common/ToastProvider";
+import { positionAgentViewFacetAbi } from "@/lib/abis/positionAgentViewFacet";
+import { positionAgentTBAFacetAbi } from "@/lib/abis/positionAgentTBAFacet";
+import { positionAgentRegistryFacetAbi } from "@/lib/abis/positionAgentRegistryFacet";
+import { erc6900AccountAbi } from "@/lib/abis/erc6900Account";
+import { sessionKeyValidationModuleAbi } from "@/lib/abis/sessionKeyValidationModule";
+import { erc8004IdentityRegistryAbi as erc8004RegistryAbi } from "@/lib/abis/erc8004Registry";
+
+const SKILL_CATALOG = [
+  {
+    id: "equalfi-mega-skill",
+    name: "EqualFi Mega Skill",
+    status: "available",
+    description: "Core automation bundle. Install once, manage via MSCA policies.",
+  },
+  {
+    id: "amm-auctions",
+    name: "AMM Auction Skill",
+    status: "placeholder",
+    description: "Create/cancel auctions with policy guards.",
+  },
+  {
+    id: "credit-flows",
+    name: "Credit Skill",
+    status: "placeholder",
+    description: "Borrowing + repayments automation.",
+  },
+  {
+    id: "index-yield",
+    name: "Index + Yield Skill",
+    status: "placeholder",
+    description: "Index mint/burn and yield roll policies.",
+  },
+  {
+    id: "ops-monitor",
+    name: "Ops Monitor",
+    status: "placeholder",
+    description: "Alerts, limits, and treasury rules.",
+  },
+];
+
+const SESSION_KEY_PRESETS = [
+  { label: "Auction Create", selector: "0x12345678" },
+  { label: "Auction Cancel", selector: "0x87654321" },
+  { label: "Roll Yield", selector: "0xabcdef01" },
+];
+
+export default function AgentsPage() {
+  const { nfts } = usePositionNFTs();
+  const publicClient = useActivePublicClient();
+  const { address, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const { addToast } = useToasts();
+
+  const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || "").trim() as `0x${string}` | "";
+  const positionNFTAddress = (process.env.NEXT_PUBLIC_POSITION_NFT || "").trim() as `0x${string}` | "";
+  const sessionKeyModule = (process.env.NEXT_PUBLIC_SESSION_KEY_MODULE || "").trim() as `0x${string}` | "";
+  const identityRegistry = (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || "").trim() as `0x${string}` | "";
+  const chainId = (process.env.NEXT_PUBLIC_CHAIN_ID || "").toString();
+
+  const [selectedNft, setSelectedNft] = useState("");
+  const [validFrom, setValidFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [valueLimit, setValueLimit] = useState("0");
+  const [budget, setBudget] = useState("0");
+  const [selectors, setSelectors] = useState([SESSION_KEY_PRESETS[0].selector]);
+  const [entityId, setEntityId] = useState("7");
+  const [sessionKey, setSessionKey] = useState("");
+  const [allowedTargetsInput, setAllowedTargetsInput] = useState("");
+  const [trackedKeyInput, setTrackedKeyInput] = useState("");
+  const [trackedKeys, setTrackedKeys] = useState([] as string[]);
+  const [trackedPolicies, setTrackedPolicies] = useState({} as Record<string, any>);
+  const [tbaAddress, setTbaAddress] = useState<`0x${string}` | "">("");
+  const [tbaDeployed, setTbaDeployed] = useState(false);
+  const [agentId, setAgentId] = useState<bigint | null>(null);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [sessionModuleInstalled, setSessionModuleInstalled] = useState<boolean | null>(null);
+  const sessionModuleKey = useMemo(() => {
+    if (!tbaAddress || !sessionKeyModule) return "";
+    return ["equalfi.sessionModule", chainId || "0", tbaAddress, entityId || "0", sessionKeyModule].join(":");
+  }, [chainId, tbaAddress, entityId, sessionKeyModule]);
+  const [isCreatingKey, setIsCreatingKey] = useState(false);
+  const [isRevoking, setIsRevoking] = useState("");
+  const [isRegisteringAgent, setIsRegisteringAgent] = useState(false);
+
+  const trackedStorageKey = useMemo(() => {
+    const base = ["equalfi.sessionKeys", chainId || "0", tbaAddress || "none", entityId || "0"].join(":");
+    return base;
+  }, [chainId, tbaAddress, entityId]);
+
+  useEffect(() => {
+    if (!allowedTargetsInput && diamondAddress) {
+      setAllowedTargetsInput(diamondAddress);
+    }
+  }, [diamondAddress, allowedTargetsInput]);
+
+  useEffect(() => {
+    if (!trackedStorageKey || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(trackedStorageKey);
+      if (!raw) {
+        setTrackedKeys([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setTrackedKeys(parsed.filter((item) => typeof item === "string"));
+      }
+    } catch (err) {
+      console.error("Failed to load tracked keys", err);
+    }
+  }, [trackedStorageKey]);
+
+  useEffect(() => {
+    if (!trackedStorageKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(trackedStorageKey, JSON.stringify(trackedKeys));
+    } catch (err) {
+      console.error("Failed to persist tracked keys", err);
+    }
+  }, [trackedKeys, trackedStorageKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTba = async () => {
+      if (!publicClient || !selectedNft || !diamondAddress) {
+        setTbaAddress("");
+        setTbaDeployed(false);
+        setAgentId(null);
+        return;
+      }
+      try {
+        const tokenId = BigInt(selectedNft);
+        const [addr, deployed, registeredAgentId] = await Promise.all([
+          publicClient.readContract({
+            address: diamondAddress,
+            abi: positionAgentViewFacetAbi,
+            functionName: "getTBAAddress",
+            args: [tokenId],
+          }) as Promise<`0x${string}`>,
+          publicClient.readContract({
+            address: diamondAddress,
+            abi: positionAgentViewFacetAbi,
+            functionName: "isTBADeployed",
+            args: [tokenId],
+          }) as Promise<boolean>,
+          publicClient.readContract({
+            address: diamondAddress,
+            abi: positionAgentViewFacetAbi,
+            functionName: "getAgentId",
+            args: [tokenId],
+          }) as Promise<bigint>,
+        ]);
+        if (!cancelled) {
+          setTbaAddress(addr);
+          setTbaDeployed(Boolean(deployed));
+          setAgentId(registeredAgentId && registeredAgentId > 0n ? registeredAgentId : null);
+        }
+      } catch (err) {
+        console.error("Failed to load TBA", err);
+        if (!cancelled) {
+          setTbaAddress("");
+          setTbaDeployed(false);
+          setAgentId(null);
+        }
+      }
+    };
+
+    loadTba();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicClient, selectedNft, diamondAddress]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSessionModule = async () => {
+      if (!publicClient || !sessionKeyModule || !tbaAddress || !tbaDeployed) {
+        setSessionModuleInstalled(null);
+        return;
+      }
+      let cached: boolean | null = null;
+      try {
+        if (sessionModuleKey) {
+          const stored = window.localStorage.getItem(sessionModuleKey);
+          cached = stored === "1" ? true : stored === "0" ? false : null;
+        }
+      } catch {
+        cached = null;
+      }
+      try {
+        const entity = Number(entityId || 0);
+        if (!Number.isFinite(entity) || entity < 0) {
+          setSessionModuleInstalled(cached);
+          return;
+        }
+        const validationConfig = packValidationConfig(sessionKeyModule, entity);
+        const installed = await publicClient.readContract({
+          address: tbaAddress,
+          abi: erc6900AccountAbi,
+          functionName: "isValidationInstalled",
+          args: [validationConfig],
+        });
+        if (!cancelled) {
+          setSessionModuleInstalled(Boolean(installed));
+        }
+      } catch {
+        if (!cancelled) {
+          setSessionModuleInstalled(cached);
+        }
+      }
+    };
+
+    loadSessionModule();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicClient, sessionKeyModule, tbaAddress, tbaDeployed, entityId, sessionModuleKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPolicies = async () => {
+      if (!publicClient || !sessionKeyModule || !tbaAddress || !trackedKeys.length) {
+        setTrackedPolicies({});
+        return;
+      }
+      const entity = Number(entityId || 0);
+      if (!Number.isFinite(entity)) return;
+      const results = await Promise.allSettled(
+        trackedKeys.map((key) =>
+          publicClient.readContract({
+            address: sessionKeyModule,
+            abi: sessionKeyValidationModuleAbi,
+            functionName: "getSessionKeyPolicy",
+            args: [tbaAddress, entity, key as `0x${string}`],
+          }),
+        ),
+      );
+      if (cancelled) return;
+      const next: Record<string, any> = {};
+      results.forEach((result, idx) => {
+        const key = trackedKeys[idx];
+        if (result.status !== "fulfilled") {
+          next[key] = { error: result.reason };
+          return;
+        }
+        const value: any = result.value;
+        const policy = value?.policy ?? value?.[0] ?? {};
+        next[key] = {
+          active: policy.active ?? policy?.[0] ?? false,
+          validAfter: policy.validAfter ?? policy?.[1] ?? BigInt(0),
+          validUntil: policy.validUntil ?? policy?.[2] ?? BigInt(0),
+          maxValuePerCall: policy.maxValuePerCall ?? policy?.[3] ?? BigInt(0),
+          cumulativeValueLimit: policy.cumulativeValueLimit ?? policy?.[4] ?? BigInt(0),
+          nonce: value?.nonce ?? value?.[1] ?? BigInt(0),
+          targetCount: value?.targetCount ?? value?.[2] ?? BigInt(0),
+          selectorCount: value?.selectorCount ?? value?.[3] ?? BigInt(0),
+          targetSelectorRuleCount: value?.targetSelectorRuleCount ?? value?.[4] ?? BigInt(0),
+          cumulativeValueUsed: value?.cumulativeValueUsed ?? value?.[5] ?? BigInt(0),
+        };
+      });
+      setTrackedPolicies(next);
+    };
+
+    loadPolicies().catch((err) => {
+      console.error("Failed to load session key policies", err);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publicClient, sessionKeyModule, tbaAddress, entityId, trackedKeys]);
+
+  const positionOptions = useMemo(() => {
+    const byId = new Map();
+    (nfts || []).forEach((nft: any) => {
+      if (!nft?.tokenId) return;
+      const entry = byId.get(nft.tokenId) || {
+        tokenId: nft.tokenId,
+        pools: new Set(),
+      };
+      if (nft.poolId !== null && nft.poolId !== undefined) {
+        entry.pools.add(nft.poolId);
+      }
+      byId.set(nft.tokenId, entry);
+    });
+    return Array.from(byId.values()).map((entry: any) => ({
+      tokenId: entry.tokenId,
+      poolCount: entry.pools.size,
+    }));
+  }, [nfts]);
+
+  const policyPreview = useMemo(
+    () => ({
+      validAfter: validFrom || "now",
+      validUntil: validUntil || "+1h",
+      valueLimit: valueLimit ? `${valueLimit} USDC` : "—",
+      budget: budget ? `${budget} USDC` : "—",
+      permissions: selectors.map((selector) => ({
+        target: allowedTargetsInput || diamondAddress || "0xEqualFiDiamond",
+        selectors: [selector],
+      })),
+    }),
+    [validFrom, validUntil, valueLimit, budget, selectors, diamondAddress, allowedTargetsInput],
+  );
+
+  const handlePlaceholder = (label: string) => {
+    addToast({
+      title: "Placeholder",
+      description: `${label} coming soon`,
+      type: "info",
+    });
+  };
+
+  const packValidationConfig = (module: string, entity: number) => {
+    const flags = 4 | 2 | 1; // global + signature + userOp
+    return encodePacked(["address", "uint32", "uint8"], [module as `0x${string}`, entity, flags]);
+  };
+
+  const parseUint = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return BigInt(0);
+    if (!/^[0-9]+$/.test(trimmed)) throw new Error("Value must be an integer");
+    return BigInt(trimmed);
+  };
+
+  const parseTimestamp = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.toLowerCase() === "now") return 0;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0) throw new Error("Invalid timestamp");
+    return Math.floor(parsed);
+  };
+
+  const truncateAddress = (addr?: string) => {
+    if (!addr) return "—";
+    if (addr.length <= 10) return addr;
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const formatTimestamp = (value?: bigint | number) => {
+    if (value === undefined || value === null) return "—";
+    const num = typeof value === "bigint" ? Number(value) : value;
+    if (!num) return "—";
+    const date = new Date(num * 1000);
+    return Number.isNaN(date.getTime()) ? String(num) : date.toLocaleString();
+  };
+
+  const formatBigInt = (value?: bigint | number) => {
+    if (value === undefined || value === null) return "0";
+    return typeof value === "bigint" ? value.toString() : String(value);
+  };
+
+  const handleCopy = async (value?: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      addToast({ title: "Copied", type: "success" });
+    } catch (err) {
+      console.error("Copy failed", err);
+      addToast({ title: "Copy failed", type: "error" });
+    }
+  };
+
+  const handleDeployTba = async () => {
+    if (!diamondAddress) {
+      addToast({ title: "Diamond address missing", type: "error" });
+      return;
+    }
+    if (!selectedNft) {
+      addToast({ title: "Select a Position NFT", type: "error" });
+      return;
+    }
+    if (!isConnected || !address) {
+      addToast({ title: "Connect wallet", type: "error" });
+      return;
+    }
+    try {
+      setIsDeploying(true);
+      const txHash = await writeContractAsync({
+        address: diamondAddress,
+        abi: positionAgentTBAFacetAbi,
+        functionName: "deployTBA",
+        args: [BigInt(selectedNft)],
+      });
+      addToast({
+        title: "Deploying TBA",
+        description: "Waiting for confirmation…",
+        type: "pending",
+      });
+      await publicClient?.waitForTransactionReceipt({ hash: txHash });
+      try {
+        const addr = await publicClient?.readContract({
+          address: diamondAddress,
+          abi: positionAgentViewFacetAbi,
+          functionName: "getTBAAddress",
+          args: [BigInt(selectedNft)],
+        }) as `0x${string}` | undefined;
+        if (addr) setTbaAddress(addr);
+        setTbaDeployed(true);
+      } catch (refreshErr) {
+        console.warn("Failed to refresh TBA state", refreshErr);
+      }
+      addToast({ title: "TBA deployed", type: "success" });
+    } catch (err: any) {
+      console.error(err);
+      addToast({ title: "Deploy failed", description: err?.message || "Transaction reverted", type: "error" });
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  const handleInstallSessionKey = async () => {
+    if (!sessionKeyModule) {
+      addToast({ title: "Session key module missing", type: "error" });
+      return;
+    }
+    if (!tbaAddress || !tbaDeployed) {
+      addToast({ title: "Deploy TBA first", type: "error" });
+      return;
+    }
+    if (!isConnected || !address) {
+      addToast({ title: "Connect wallet", type: "error" });
+      return;
+    }
+    try {
+      setIsInstalling(true);
+      const entity = Number(entityId || 0);
+      if (!Number.isFinite(entity) || entity < 0) {
+        throw new Error("Invalid entity ID");
+      }
+      const validationConfig = packValidationConfig(sessionKeyModule, entity);
+      const txHash = await writeContractAsync({
+        address: tbaAddress,
+        abi: erc6900AccountAbi,
+        functionName: "installValidation",
+        args: [validationConfig, [], "0x", []],
+      });
+      addToast({ title: "Installing session key module", type: "pending" });
+      await publicClient?.waitForTransactionReceipt({ hash: txHash });
+      setSessionModuleInstalled(true);
+      try {
+        if (sessionModuleKey) {
+          window.localStorage.setItem(sessionModuleKey, "1");
+        }
+      } catch {}
+      addToast({ title: "Session key module installed", type: "success" });
+    } catch (err: any) {
+      console.error(err);
+      addToast({ title: "Install failed", description: err?.message || "Transaction reverted", type: "error" });
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+  const handleCreateSessionKey = async () => {
+    if (!sessionKeyModule) {
+      addToast({ title: "Session key module missing", type: "error" });
+      return;
+    }
+    if (!tbaAddress || !tbaDeployed) {
+      addToast({ title: "Deploy TBA first", type: "error" });
+      return;
+    }
+    if (!sessionKey || !isAddress(sessionKey)) {
+      addToast({ title: "Enter a valid session key address", type: "error" });
+      return;
+    }
+    if (!isConnected || !address) {
+      addToast({ title: "Connect wallet", type: "error" });
+      return;
+    }
+
+    try {
+      setIsCreatingKey(true);
+      const entity = Number(entityId || 0);
+      if (!Number.isFinite(entity) || entity < 0) {
+        throw new Error("Invalid entity ID");
+      }
+
+      const allowedTargets = allowedTargetsInput
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+
+      if (selectors.length > 0 && allowedTargets.length === 0) {
+        throw new Error("Provide at least one allowed target");
+      }
+
+      const invalidTarget = allowedTargets.find((t) => !isAddress(t));
+      if (invalidTarget) {
+        throw new Error(`Invalid target address: ${invalidTarget}`);
+      }
+
+      const invalidSelector = selectors.find((sel) => !/^0x[0-9a-fA-F]{8}$/.test(sel));
+      if (invalidSelector) {
+        throw new Error(`Invalid selector: ${invalidSelector}`);
+      }
+
+      const validAfter = parseTimestamp(validFrom);
+      const validUntilValue = parseTimestamp(validUntil);
+      if (validUntilValue && validAfter && validUntilValue < validAfter) {
+        throw new Error("validUntil must be >= validAfter");
+      }
+
+      const maxValuePerCall = parseUint(valueLimit);
+      const cumulativeValueLimit = parseUint(budget);
+
+      const txHash = await writeContractAsync({
+        address: sessionKeyModule,
+        abi: sessionKeyValidationModuleAbi,
+        functionName: "setSessionKeyPolicy",
+        args: [
+          tbaAddress,
+          entity,
+          sessionKey,
+          validAfter,
+          validUntilValue,
+          maxValuePerCall,
+          cumulativeValueLimit,
+          allowedTargets as `0x${string}`[],
+          selectors as `0x${string}`[],
+          [],
+        ],
+      });
+
+      addToast({ title: "Session key policy submitted", type: "pending" });
+      await publicClient?.waitForTransactionReceipt({ hash: txHash });
+      addToast({ title: "Session key policy set", type: "success" });
+      setTrackedKeys((prev) => (prev.includes(sessionKey) ? prev : [...prev, sessionKey]));
+      setTrackedKeyInput("");
+    } catch (err: any) {
+      console.error(err);
+      addToast({ title: "Session key failed", description: err?.message || "Transaction reverted", type: "error" });
+    } finally {
+      setIsCreatingKey(false);
+    }
+  };
+
+  const handleTrackKey = () => {
+    if (!trackedKeyInput || !isAddress(trackedKeyInput)) {
+      addToast({ title: "Enter a valid address", type: "error" });
+      return;
+    }
+    setTrackedKeys((prev) => (prev.includes(trackedKeyInput) ? prev : [...prev, trackedKeyInput]));
+    setTrackedKeyInput("");
+  };
+
+  const handleRevokeKey = async (key: string) => {
+    if (!sessionKeyModule || !tbaAddress) return;
+    if (!isConnected || !address) {
+      addToast({ title: "Connect wallet", type: "error" });
+      return;
+    }
+    try {
+      setIsRevoking(key);
+      const entity = Number(entityId || 0);
+      const txHash = await writeContractAsync({
+        address: sessionKeyModule,
+        abi: sessionKeyValidationModuleAbi,
+        functionName: "revokeSessionKey",
+        args: [tbaAddress, entity, key as `0x${string}`],
+      });
+      addToast({ title: "Revoking session key", type: "pending" });
+      await publicClient?.waitForTransactionReceipt({ hash: txHash });
+      addToast({ title: "Session key revoked", type: "success" });
+    } catch (err: any) {
+      console.error(err);
+      addToast({ title: "Revoke failed", description: err?.message || "Transaction reverted", type: "error" });
+    } finally {
+      setIsRevoking("");
+    }
+  };
+
+  const handleRegisterAgent = async () => {
+    if (!identityRegistry) {
+      addToast({ title: "Identity registry missing", type: "error" });
+      return;
+    }
+    if (!tbaAddress || !tbaDeployed) {
+      addToast({ title: "Deploy TBA first", type: "error" });
+      return;
+    }
+    if (!selectedNft) {
+      addToast({ title: "Select a Position NFT", type: "error" });
+      return;
+    }
+    if (!isConnected || !address) {
+      addToast({ title: "Connect wallet", type: "error" });
+      return;
+    }
+
+    try {
+      setIsRegisteringAgent(true);
+
+      const ownerAddress = await publicClient?.readContract({
+        address: positionNFTAddress as `0x${string}`,
+        abi: erc721Abi,
+        functionName: "ownerOf",
+        args: [BigInt(selectedNft)],
+      });
+
+      if (!ownerAddress || ownerAddress.toLowerCase() !== address.toLowerCase()) {
+        throw new Error(`Wallet is not owner of Position #${selectedNft}`);
+      }
+
+      const registerCallData = encodeFunctionData({
+        abi: erc8004RegistryAbi,
+        functionName: "register",
+        args: [],
+      });
+
+      const parseRegisteredAgentId = (receipt: any) => {
+        if (!receipt) return null;
+        for (const log of receipt.logs || []) {
+          if (log.address?.toLowerCase() !== identityRegistry.toLowerCase()) continue;
+          try {
+            const decoded = decodeEventLog({
+              abi: erc8004RegistryAbi,
+              data: log.data,
+              topics: log.topics,
+            }) as { eventName: string; args?: any };
+            if (decoded?.eventName === "Registered") {
+              const owner = (decoded.args?.owner as string | undefined)?.toLowerCase?.() || "";
+              if (owner && owner !== tbaAddress.toLowerCase()) continue;
+              return decoded.args?.agentId as bigint;
+            }
+          } catch {
+            // ignore non-matching logs
+          }
+        }
+        return null;
+      };
+
+      const runRegister = async () => {
+        const txHash = await writeContractAsync({
+          address: tbaAddress,
+          abi: erc6900AccountAbi,
+          functionName: "execute",
+          args: [identityRegistry, BigInt(0), registerCallData],
+        });
+
+        addToast({ title: "Registering agent", type: "pending" });
+        const receipt = await publicClient?.waitForTransactionReceipt({ hash: txHash });
+        return parseRegisteredAgentId(receipt);
+      };
+
+      let agentId = await runRegister();
+      if (agentId === 0n) {
+        // ERC-8004 registry starts at 0; retry to get a non-zero id for EqualFi
+        agentId = await runRegister();
+      }
+
+      if (agentId === null || agentId === 0n) {
+        throw new Error("Registry returned agentId 0; retry or reset registry");
+      }
+
+      const recordTx = await writeContractAsync({
+        address: diamondAddress as `0x${string}`,
+        abi: positionAgentRegistryFacetAbi,
+        functionName: "recordAgentRegistration",
+        args: [BigInt(selectedNft), agentId],
+      });
+
+      addToast({ title: "Recording agent", type: "pending" });
+      await publicClient?.waitForTransactionReceipt({ hash: recordTx });
+      setAgentId(agentId);
+      addToast({ title: "Agent registered", type: "success" });
+    } catch (err: any) {
+      console.error(err);
+      addToast({ title: "Register failed", description: err?.message || "Transaction reverted", type: "error" });
+    } finally {
+      setIsRegisteringAgent(false);
+    }
+  };
+
+  return (
+    <AppShell title="Position Agents">
+      <div className="space-y-10">
+        <section className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <SectionHeader title="AGENT SETUP" subtitle="Position NFT binding" />
+            <div className="mt-6 space-y-4">
+              <Field label="Position NFT">
+                <Select value={selectedNft} onChange={(e) => setSelectedNft(e.target.value)}>
+                  <option value="">Select Position</option>
+                  {positionOptions.map((entry) => (
+                    <option key={entry.tokenId} value={String(entry.tokenId)}>
+                      #{entry.tokenId} · {entry.poolCount || 0} pools
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                Identity Registry: <span className="text-white">{identityRegistry || 'Not set'}</span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                  TBA: <span className="text-white">{tbaDeployed ? "Deployed" : "Not Deployed"}</span>
+                  {tbaAddress && (
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-500">
+                      <span className="truncate" title={tbaAddress}>
+                        {truncateAddress(tbaAddress)}
+                      </span>
+                      <span
+                        onClick={() => handleCopy(tbaAddress)}
+                        className="cursor-pointer text-gray-500 hover:text-mint"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Copy TBA address"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleCopy(tbaAddress);
+                          }
+                        }}
+                      >
+                        ⧉
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                  Agent ID: <span className="text-white">{agentId !== null ? agentId.toString() : "Not Registered"}</span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ActionButton disabled={isDeploying} onClick={handleDeployTba}>
+                  {isDeploying ? "Deploying…" : "Deploy TBA"}
+                </ActionButton>
+                <ActionButton disabled={isRegisteringAgent} onClick={handleRegisterAgent}>
+                  {isRegisteringAgent ? "Registering…" : "Register Agent"}
+                </ActionButton>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <SectionHeader title="MEGA SKILL" subtitle="Install once" />
+            <div className="mt-6 space-y-4">
+              <p className="text-xs font-mono text-gray-400">
+                Mega Skill bundles automation modules. MSCA policies determine what the agent can do.
+              </p>
+              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                Status: <span className="text-white">Not Installed</span>
+              </div>
+              <ActionButton onClick={() => handlePlaceholder("Install Mega Skill")}>Install Mega Skill</ActionButton>
+            </div>
+          </Card>
+        </section>
+
+        <section>
+          <div className="mb-4">
+            <SectionHeader title="SKILL BROWSER" subtitle="MSCA modules" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {SKILL_CATALOG.map((skill) => (
+              <Card key={skill.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-sm font-mono text-white uppercase tracking-[0.2em]">{skill.name}</h3>
+                  <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase text-gray-400">
+                    {skill.status}
+                  </span>
+                </div>
+                <p className="mt-4 text-xs font-mono text-gray-400">{skill.description}</p>
+                <div className="mt-6">
+                  <ActionButton onClick={() => handlePlaceholder(`Install ${skill.name}`)}>
+                    Install
+                  </ActionButton>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <SectionHeader title="SESSION KEYS" subtitle="Policy builder" />
+            <div className="mt-6 space-y-4">
+              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                SessionKeyValidationModule:
+                <div className="mt-1 text-[10px] text-gray-500">
+                  {sessionKeyModule || "Not set"}
+                </div>
+                <div className="mt-1 text-[10px] text-gray-500">
+                  Installed: {sessionModuleInstalled === null ? "Unknown" : sessionModuleInstalled ? "Yes" : "No"}
+                </div>
+              </div>
+              <Field label="Validation Entity ID">
+                <Input value={entityId} onChange={(e) => setEntityId(e.target.value)} />
+              </Field>
+              <ActionButton disabled={isInstalling} onClick={handleInstallSessionKey}>
+                {isInstalling ? "Installing…" : "Install Session Key Module"}
+              </ActionButton>
+
+              <Field label="Session Key Address">
+                <Input
+                  placeholder="0x..."
+                  value={sessionKey}
+                  onChange={(e) => setSessionKey(e.target.value)}
+                />
+              </Field>
+              <Field label="Allowed Targets (comma-separated)">
+                <Input
+                  placeholder={diamondAddress || "0x..."}
+                  value={allowedTargetsInput}
+                  onChange={(e) => setAllowedTargetsInput(e.target.value)}
+                />
+              </Field>
+              <Field label="Valid From (unix seconds)">
+                <Input
+                  placeholder="0"
+                  value={validFrom}
+                  onChange={(e) => setValidFrom(e.target.value)}
+                />
+              </Field>
+              <Field label="Valid Until (unix seconds)">
+                <Input
+                  placeholder="0"
+                  value={validUntil}
+                  onChange={(e) => setValidUntil(e.target.value)}
+                />
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Max Value Per Call (wei)">
+                  <Input value={valueLimit} onChange={(e) => setValueLimit(e.target.value)} />
+                </Field>
+                <Field label="Cumulative Value Limit (wei)">
+                  <Input value={budget} onChange={(e) => setBudget(e.target.value)} />
+                </Field>
+              </div>
+              <Field label="Allowed Selectors">
+                <div className="grid gap-2">
+                  {SESSION_KEY_PRESETS.map((preset) => (
+                    <label key={preset.selector} className="flex items-center gap-2 text-xs text-gray-400">
+                      <input
+                        type="checkbox"
+                        checked={selectors.includes(preset.selector)}
+                        onChange={(e) => {
+                          setSelectors((prev) =>
+                            e.target.checked
+                              ? [...prev, preset.selector]
+                              : prev.filter((item) => item !== preset.selector),
+                          );
+                        }}
+                      />
+                      {preset.label} · {preset.selector}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+
+              <ActionButton disabled={isCreatingKey} onClick={handleCreateSessionKey}>
+                {isCreatingKey ? "Creating…" : "Create Session Key"}
+              </ActionButton>
+            </div>
+          </Card>
+
+          <Card>
+            <SectionHeader title="POLICY PREVIEW" subtitle="JSON draft" />
+            <pre className="mt-6 text-xs text-gray-400 bg-black/60 border border-white/10 rounded-lg p-4 overflow-auto">
+{JSON.stringify(policyPreview, null, 2)}
+            </pre>
+          </Card>
+        </section>
+
+        <section>
+          <div className="mb-4">
+            <SectionHeader title="ACTIVE SESSION KEYS" subtitle="Tracked policies" />
+          </div>
+          <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <Input
+              placeholder="Track a session key address"
+              value={trackedKeyInput}
+              onChange={(e) => setTrackedKeyInput(e.target.value)}
+            />
+            <ActionButton onClick={handleTrackKey}>Track</ActionButton>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {trackedKeys.length === 0 && (
+              <div className="rounded-xl border border-white/10 bg-black/40 p-4 text-xs font-mono text-gray-400">
+                No tracked session keys yet.
+              </div>
+            )}
+            {trackedKeys.map((key) => {
+              const policy = trackedPolicies[key];
+              const now = Math.floor(Date.now() / 1000);
+              const isActive = policy?.active && (!policy?.validUntil || Number(policy.validUntil) === 0 || Number(policy.validUntil) >= now);
+              return (
+                <div
+                  key={key}
+                  className="rounded-xl border border-white/10 bg-black/40 p-4 text-xs font-mono text-gray-400"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-white">{truncateAddress(key)}</span>
+                    <span className="uppercase tracking-[0.2em] text-[10px]">
+                      {policy?.error ? "Error" : isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    <div>Valid After: {formatTimestamp(policy?.validAfter)}</div>
+                    <div>Valid Until: {formatTimestamp(policy?.validUntil)}</div>
+                    <div>Max Value: {formatBigInt(policy?.maxValuePerCall)}</div>
+                    <div>Cumulative Limit: {formatBigInt(policy?.cumulativeValueLimit)}</div>
+                    <div>Used: {formatBigInt(policy?.cumulativeValueUsed)}</div>
+                    <div>Selectors: {formatBigInt(policy?.selectorCount)}</div>
+                  </div>
+                  <div className="mt-4">
+                    <ActionButton disabled={isRevoking === key} onClick={() => handleRevokeKey(key)}>
+                      {isRevoking === key ? "Revoking…" : "Revoke"}
+                    </ActionButton>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </AppShell>
+  );
+}

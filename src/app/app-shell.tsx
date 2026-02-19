@@ -27,6 +27,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <Link href="/app/index" className="hover:text-white">
               Index
             </Link>
+            <Link href="/app/agents" className="hover:text-white">
+              Agents
+            </Link>
           </nav>
         </div>
         <ConnectButton />
