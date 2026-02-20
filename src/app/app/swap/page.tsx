@@ -46,11 +46,12 @@ export default function SwapPage() {
     let cancelled = false;
     const fetchAuctions = () => {
       const chainParam = activeChainId ? `?chainId=${activeChainId}` : "";
-      fetch(`/api/auctions${chainParam}`)
+      const cacheBuster = `${chainParam ? '&' : '?'}t=${Date.now()}`;
+      fetch(`/api/auctions${chainParam}${cacheBuster}`)
         .then((res) => res.json())
         .then((data) => {
           if (!cancelled) {
-            console.log('[DEBUG] Auctions fetched:', data.auctions?.length);
+            console.log('[DEBUG] Auctions fetched:', data.auctions?.length, data.auctions);
             setAuctions(data.auctions || []);
           }
         })
@@ -157,10 +158,30 @@ export default function SwapPage() {
     const inAddr = swapIn.address.toLowerCase();
     const outAddr = swapOut.address.toLowerCase();
     const source = auctions.length ? auctions : onchainAuctions;
+    
+    console.log('[DEBUG] Filtering auctions:', {
+      inAddr,
+      outAddr,
+      sourceLength: source.length,
+      sampleAuction: source[0],
+    });
+    
     const result = source.filter((a) => {
       const aIn = a.token_a?.toLowerCase();
       const aOut = a.token_b?.toLowerCase();
-      return (aIn === inAddr && aOut === outAddr) || (aIn === outAddr && aOut === inAddr);
+      const isActive = a.active !== false && a.finalized !== true;
+      const matchesTokens = (aIn === inAddr && aOut === outAddr) || (aIn === outAddr && aOut === inAddr);
+      
+      console.log('[DEBUG] Auction filter check:', {
+        auctionId: a.id,
+        aIn,
+        aOut,
+        isActive,
+        matchesTokens,
+        passes: matchesTokens && isActive,
+      });
+      
+      return matchesTokens && isActive;
     });
     console.log('[DEBUG] eligibleAuctions result:', result.length, 'found');
     return result;
@@ -412,14 +433,14 @@ export default function SwapPage() {
                       <div
                         key={`${auction.type}-${auction.id}-row`}
                         className={[
-                          "flex justify-between rounded-xl border px-spacing10 py-spacing8",
+                          "flex justify-between items-center rounded-xl border px-spacing10 py-spacing8 min-h-[44px]",
                           String(auction.id) === selectedAuction ? "border-accent1" : "border-surface3",
                         ].join(" ")}
                       >
                         <span>
-                          Auction {auction.id} • Reserves {auction.reserve_a ?? "—"} / {auction.reserve_b ?? "—"}
+                          Auction {auction.id} ({auction.type}) • Reserves {auction.reserve_a ?? "—"} / {auction.reserve_b ?? "—"}
                         </span>
-                        <span>Fee {auction.fee_bps}bps</span>
+                        <span className="whitespace-nowrap">Fee {auction.fee_bps}bps</span>
                       </div>
                     ))}
                   </div>

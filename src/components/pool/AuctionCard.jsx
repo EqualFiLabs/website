@@ -181,11 +181,11 @@ function AuctionCard({ auction, onJoin, onCancel, onAdd, onExit, canAddLiquidity
       )}
 
       {/* Actions */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-surface2">
+      <div className="mt-8 flex flex-col gap-4 pt-6 border-t border-surface2">
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="text-xs font-bold uppercase tracking-wider text-neutral2 hover:text-neutral1 transition-colors"
+          className="text-xs font-bold uppercase tracking-wider text-neutral2 hover:text-neutral1 transition-colors text-left"
         >
           {expanded ? 'Hide Details' : 'View Details'}
         </button>

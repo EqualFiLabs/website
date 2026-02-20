@@ -89,12 +89,26 @@ function JoinModal({ isOpen, auction, onClose }) {
       auction?.reserveA && auction?.reserveB
         ? Math.sqrt(auction.reserveA * auction.reserveB)
         : null
-    const baseTotal = totalShares && totalShares > 0 ? totalShares : fallbackTotal
-    if (baseTotal && baseTotal > 0) {
+    // totalShares is in wei (1e18), need to convert to regular units
+    const baseTotalWei = totalShares && totalShares > 0 ? totalShares / 1e18 : fallbackTotal
+    
+    console.log('[JoinModal] Share calculation:', {
+      totalSharesRaw: totalShares,
+      totalSharesConverted: totalShares ? totalShares / 1e18 : null,
+      fallbackTotal,
+      baseTotalWei,
+      share: computeAmounts.share,
+      reserveA: auction?.reserveA,
+      reserveB: auction?.reserveB,
+    })
+    
+    if (baseTotalWei && baseTotalWei > 0) {
       const share = computeAmounts.share
-      const pct = (share / (baseTotal + share)) * 100
+      const pct = (share / (baseTotalWei + share)) * 100
+      console.log('[JoinModal] Expected share %:', pct)
       setExpectedSharePct(pct.toFixed(2))
     } else {
+      console.log('[JoinModal] No baseTotalWei, cannot calculate share')
       setExpectedSharePct('')
     }
   }, [computeAmounts, totalShares, auction])
