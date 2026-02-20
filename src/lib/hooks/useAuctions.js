@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { formatUnits } from 'viem'
 import { useAccount } from 'wagmi'
 import { ammAuctionFacetAbi } from '../abis/ammAuctionFacet'
@@ -344,9 +344,9 @@ function useAuctions() {
     setPage(1)
   }
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     setRefreshIndex((prev) => prev + 1)
-  }
+  }, [])
 
   return {
     auctions: filtered,

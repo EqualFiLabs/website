@@ -87,7 +87,9 @@ export default function IndexPage() {
   const [manualIndexId, setManualIndexId] = useState('')
   const [indexView, setIndexView] = useState(null)
   const [indexError, setIndexError] = useState('')
+  const [indexLoading, setIndexLoading] = useState(false)
   const [userIndexBalance, setUserIndexBalance] = useState(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
 
   const [mintMode, setMintMode] = useState('wallet')
   const [units, setUnits] = useState('')
@@ -122,6 +124,7 @@ export default function IndexPage() {
         return
       }
       setIndexError('')
+      if (!cancelled) setIndexLoading(true)
       try {
         const view = await publicClient.readContract({
           address: diamondAddress,
@@ -137,6 +140,8 @@ export default function IndexPage() {
           setIndexView(null)
           setIndexError('Unable to load index data. Check the ID or network.')
         }
+      } finally {
+        if (!cancelled) setIndexLoading(false)
       }
     }
     if (selectedIndexId !== null && selectedIndexId !== undefined) {
@@ -154,6 +159,7 @@ export default function IndexPage() {
         setUserIndexBalance(null)
         return
       }
+      if (!cancelled) setBalanceLoading(true)
       try {
         const balance = await publicClient.readContract({
           address: indexView.token,
@@ -168,6 +174,8 @@ export default function IndexPage() {
         if (!cancelled) {
           setUserIndexBalance(null)
         }
+      } finally {
+        if (!cancelled) setBalanceLoading(false)
       }
     }
     fetchBalance()
@@ -202,6 +210,15 @@ export default function IndexPage() {
   }, [units])
 
   const unitsValid = parsedUnits > 0n && parsedUnits % INDEX_SCALE === 0n
+
+  const mintDisabledReason = useMemo(() => {
+    if (!isConnected) return 'Connect wallet to mint or burn.'
+    if (!indexView) return 'Select an index to continue.'
+    if (indexView?.paused) return 'Index is paused.'
+    if (!unitsValid) return 'Units must be whole index units (1.0).'
+    if (mintMode === 'position' && !resolvedPositionId) return 'Select a Position NFT.'
+    return ''
+  }, [isConnected, indexView, unitsValid, mintMode, resolvedPositionId])
 
   const requiredAssets = useMemo(() => {
     if (!indexView || parsedUnits <= 0n) return []
@@ -266,6 +283,34 @@ export default function IndexPage() {
     }
   }
 
+  const refreshIndexData = async () => {
+    if (!publicClient || selectedIndexId === null || selectedIndexId === undefined) return
+    try {
+      const view = await publicClient.readContract({
+        address: diamondAddress,
+        abi: equalIndexFacetV3Abi,
+        functionName: 'getIndex',
+        args: [BigInt(selectedIndexId)],
+      })
+      setIndexView(view)
+    } catch {
+      // ignore
+    }
+    if (address && indexView?.token) {
+      try {
+        const balance = await publicClient.readContract({
+          address: indexView.token,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [address],
+        })
+        setUserIndexBalance(balance)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   const handleMint = async () => {
     setIsSubmitting(true)
     try {
@@ -289,6 +334,7 @@ export default function IndexPage() {
           link: buildTxUrl(txHash),
         })
         await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await refreshIndexData()
         addToast({
           title: 'Index minted from position',
           description: `Index #${selectedIndexId}`,
@@ -305,11 +351,12 @@ export default function IndexPage() {
           }
           await ensureAllowance(asset.asset, diamondAddress, asset.total)
         }
+        const maxInputAmounts = requiredAssets.map((asset) => asset.total)
         const txHash = await writeContractAsync({
           address: diamondAddress,
           abi: equalIndexFacetV3Abi,
           functionName: 'mint',
-          args: [BigInt(selectedIndexId), parsedUnits, address],
+          args: [BigInt(selectedIndexId), parsedUnits, address, maxInputAmounts],
           value: nativeTotal > 0n ? nativeTotal : undefined,
         })
         addToast({
@@ -319,6 +366,7 @@ export default function IndexPage() {
           link: buildTxUrl(txHash),
         })
         await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await refreshIndexData()
         addToast({
           title: 'Index minted',
           description: `Index #${selectedIndexId}`,
@@ -361,6 +409,7 @@ export default function IndexPage() {
           link: buildTxUrl(txHash),
         })
         await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await refreshIndexData()
         addToast({
           title: 'Index burned from position',
           description: `Index #${selectedIndexId}`,
@@ -381,6 +430,7 @@ export default function IndexPage() {
           link: buildTxUrl(txHash),
         })
         await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await refreshIndexData()
         addToast({
           title: 'Index burned',
           description: `Index #${selectedIndexId}`,
@@ -681,27 +731,30 @@ export default function IndexPage() {
                 <div className="rounded-2xl border border-surface2 bg-surface2/40 p-4">
                   <div className="text-xs uppercase tracking-[0.2em] text-neutral3">Token</div>
                   <div className="mt-2 text-sm font-semibold text-neutral1">
-                    {indexView?.token ? `${indexView.token.slice(0, 6)}...${indexView.token.slice(-4)}` : '--'}
+                    {indexLoading ? 'Loading…' : indexView?.token ? `${indexView.token.slice(0, 6)}...${indexView.token.slice(-4)}` : '--'}
                   </div>
                   <div className="mt-2 text-xs text-neutral3">
-                    Total Units: {indexView ? formatUnits(indexView.totalUnits || 0n, 18) : '--'}
+                    Total Units:{' '}
+                    {indexLoading ? '—' : indexView ? formatUnits(indexView.totalUnits || 0n, 18) : '--'}
                   </div>
-                  {isConnected && (
+                  {isConnected ? (
                     <div className="mt-2 text-xs text-neutral3">
                       Your Balance:{' '}
                       <span className="font-semibold text-accent1">
-                        {userIndexBalance !== null ? formatUnits(userIndexBalance, 18) : '--'}
+                        {balanceLoading ? 'Loading…' : userIndexBalance !== null ? formatUnits(userIndexBalance, 18) : '--'}
                       </span>
                     </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-neutral3">Connect wallet to see your balance.</div>
                   )}
                 </div>
                 <div className="rounded-2xl border border-surface2 bg-surface2/40 p-4">
                   <div className="text-xs uppercase tracking-[0.2em] text-neutral3">Status</div>
                   <div className="mt-2 text-sm font-semibold text-neutral1">
-                    {indexView ? (indexView.paused ? 'Paused' : 'Active') : '--'}
+                    {indexLoading ? 'Loading…' : indexView ? (indexView.paused ? 'Paused' : 'Active') : '--'}
                   </div>
                   <div className="mt-2 text-xs text-neutral3">
-                    Flash Fee: {indexView ? `${indexView.flashFeeBps} bps` : '--'}
+                    Flash Fee: {indexLoading ? '—' : indexView ? `${indexView.flashFeeBps} bps` : '--'}
                   </div>
                 </div>
               </div>
@@ -782,16 +835,30 @@ export default function IndexPage() {
                   <label className="text-sm font-medium text-neutral2" htmlFor="index-units">
                     Units
                   </label>
-                  <input
-                    id="index-units"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={units}
-                    onChange={(e) => setUnits(e.target.value)}
-                    className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                    placeholder="1"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="index-units"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={units}
+                      onChange={(e) => setUnits(e.target.value)}
+                      className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
+                      placeholder="1"
+                    />
+                    <div className="flex flex-col gap-1">
+                      {[1, 5, 10].map((quick) => (
+                        <button
+                          key={quick}
+                          type="button"
+                          onClick={() => setUnits(String(quick))}
+                          className="h-8 w-12 rounded-full border border-surface3 text-xs font-semibold text-neutral2 transition hover:border-accent1 hover:text-accent1"
+                        >
+                          {quick}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <p className="text-xs text-neutral3">Units are whole index tokens (1.0 = 1e18).</p>
                 </div>
                 <div className="space-y-2">
@@ -852,7 +919,7 @@ export default function IndexPage() {
                 <button
                   type="button"
                   onClick={handleMint}
-                  disabled={isSubmitting || !unitsValid || !indexView || indexView?.paused}
+                  disabled={isSubmitting || !unitsValid || !indexView || indexView?.paused || !isConnected}
                   className="min-h-[44px] rounded-full bg-accent1 px-6 py-2.5 text-sm font-semibold text-ink shadow-card transition hover:-translate-y-1 hover:shadow-xl hover:bg-accent1Hovered disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {mintMode === 'position' ? 'Mint from Position' : 'Mint'}
@@ -860,12 +927,15 @@ export default function IndexPage() {
                 <button
                   type="button"
                   onClick={handleBurn}
-                  disabled={isSubmitting || !unitsValid || !indexView || indexView?.paused}
+                  disabled={isSubmitting || !unitsValid || !indexView || indexView?.paused || !isConnected}
                   className="min-h-[44px] rounded-full border border-surface3 px-6 py-2.5 text-sm font-semibold text-neutral1 transition hover:-translate-y-0.5 hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {mintMode === 'position' ? 'Burn from Position' : 'Burn'}
                 </button>
               </div>
+              {mintDisabledReason ? (
+                <p className="mt-3 text-center text-xs text-neutral3">{mintDisabledReason}</p>
+              ) : null}
             </section>
 
             <section className="rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card">

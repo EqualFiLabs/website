@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
 import useActivePublicClient from '@/lib/hooks/useActivePublicClient'
 import useAuctions from '@/lib/hooks/useAuctions'
@@ -27,6 +27,12 @@ function AuctionManagementPage() {
   const { auctions, refresh } = useAuctions()
   const { nfts } = usePositionNFTs()
   const createForm = useCreateAuction()
+
+  useEffect(() => {
+    if (createForm?.successId === null || createForm?.successId === undefined) return
+    refresh()
+    setView('list')
+  }, [createForm?.successId, refresh])
   const poolsConfig = usePoolsConfig()
   const { buildTxUrl } = useExplorerUrl()
 

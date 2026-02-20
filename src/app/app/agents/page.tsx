@@ -13,45 +13,49 @@ import { positionAgentTBAFacetAbi } from "@/lib/abis/positionAgentTBAFacet";
 import { positionAgentRegistryFacetAbi } from "@/lib/abis/positionAgentRegistryFacet";
 import { erc6900AccountAbi } from "@/lib/abis/erc6900Account";
 import { sessionKeyValidationModuleAbi } from "@/lib/abis/sessionKeyValidationModule";
+import { positionAgentAmmSkillModuleAbi } from "@/lib/abis/positionAgentAmmSkillModule";
 import { erc8004IdentityRegistryAbi as erc8004RegistryAbi } from "@/lib/abis/erc8004Registry";
 
-const SKILL_CATALOG = [
-  {
-    id: "equalfi-mega-skill",
-    name: "EqualFi Mega Skill",
-    status: "available",
-    description: "Core automation bundle. Install once, manage via MSCA policies.",
-  },
-  {
-    id: "amm-auctions",
-    name: "AMM Auction Skill",
-    status: "placeholder",
-    description: "Create/cancel auctions with policy guards.",
-  },
-  {
-    id: "credit-flows",
-    name: "Credit Skill",
-    status: "placeholder",
-    description: "Borrowing + repayments automation.",
-  },
-  {
-    id: "index-yield",
-    name: "Index + Yield Skill",
-    status: "placeholder",
-    description: "Index mint/burn and yield roll policies.",
-  },
-  {
-    id: "ops-monitor",
-    name: "Ops Monitor",
-    status: "placeholder",
-    description: "Alerts, limits, and treasury rules.",
-  },
+// Skill catalog removed
+
+const EXECUTE_SELECTORS = ["0xb61d27f6", "0x34fcd5be", "0x51945447"];
+const AMM_ACTION_SELECTORS = [
+  "0xed5b5ef5", // createAuction((uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint16,uint8))
+  "0x96b5a755", // cancelAuction(uint256)
+  "0xc88d8213", // rollYieldToPosition(uint256,uint256)
 ];
 
-const SESSION_KEY_PRESETS = [
-  { label: "Auction Create", selector: "0x12345678" },
-  { label: "Auction Cancel", selector: "0x87654321" },
-  { label: "Roll Yield", selector: "0xabcdef01" },
+const ACTION_PRESETS = [
+  {
+    id: "amm",
+    label: "AMM Auctions",
+    selectors: AMM_ACTION_SELECTORS,
+    description: "Create + cancel AMM auctions (and roll yield) via the AMM skill module.",
+  },
+  {
+    id: "nonce",
+    label: "Check status (nonce)",
+    selectors: ["0xaffed0e0"],
+    description: "Read-only health check for the TBA.",
+  },
+  {
+    id: "execute",
+    label: "Execute (single call)",
+    selectors: ["0xb61d27f6"],
+    description: "Allow a single call to an approved target.",
+  },
+  {
+    id: "executeBatch",
+    label: "Execute batch",
+    selectors: ["0x34fcd5be"],
+    description: "Allow batch calls to approved targets.",
+  },
+  {
+    id: "executeOp",
+    label: "Execute (operation)",
+    selectors: ["0x51945447"],
+    description: "Allow execute(address,uint256,bytes,uint8) (operation=0).",
+  },
 ];
 
 export default function AgentsPage() {
@@ -64,6 +68,7 @@ export default function AgentsPage() {
   const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || "").trim() as `0x${string}` | "";
   const positionNFTAddress = (process.env.NEXT_PUBLIC_POSITION_NFT || "").trim() as `0x${string}` | "";
   const sessionKeyModule = (process.env.NEXT_PUBLIC_SESSION_KEY_MODULE || "").trim() as `0x${string}` | "";
+  const ammSkillModule = (process.env.NEXT_PUBLIC_AMM_SKILL_MODULE || "").trim() as `0x${string}` | "";
   const identityRegistry = (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || "").trim() as `0x${string}` | "";
   const chainId = (process.env.NEXT_PUBLIC_CHAIN_ID || "").toString();
 
@@ -72,7 +77,18 @@ export default function AgentsPage() {
   const [validUntil, setValidUntil] = useState("");
   const [valueLimit, setValueLimit] = useState("0");
   const [budget, setBudget] = useState("0");
-  const [selectors, setSelectors] = useState([SESSION_KEY_PRESETS[0].selector]);
+  const [selectedActions, setSelectedActions] = useState(["amm"]);
+  const [ammMaxReserve, setAmmMaxReserve] = useState("0");
+  const [ammTtlSeconds, setAmmTtlSeconds] = useState("0");
+  const [isInstallingAmm, setIsInstallingAmm] = useState(false);
+  const selectors = useMemo(() => {
+    const set = new Set<string>();
+    selectedActions.forEach((id) => {
+      const preset = ACTION_PRESETS.find((p) => p.id === id);
+      preset?.selectors?.forEach((selector) => set.add(selector));
+    });
+    return Array.from(set);
+  }, [selectedActions]);
   const [entityId, setEntityId] = useState("7");
   const [sessionKey, setSessionKey] = useState("");
   const [allowedTargetsInput, setAllowedTargetsInput] = useState("");
@@ -314,13 +330,7 @@ export default function AgentsPage() {
     [validFrom, validUntil, valueLimit, budget, selectors, diamondAddress, allowedTargetsInput],
   );
 
-  const handlePlaceholder = (label: string) => {
-    addToast({
-      title: "Placeholder",
-      description: `${label} coming soon`,
-      type: "info",
-    });
-  };
+  // Placeholder handler removed
 
   const packValidationConfig = (module: string, entity: number) => {
     const flags = 4 | 2 | 1; // global + signature + userOp
@@ -463,6 +473,128 @@ export default function AgentsPage() {
     }
   };
 
+  const handleApplyAmmTemplate = async () => {
+    if (!ammSkillModule) {
+      addToast({ title: "AMM skill module missing", type: "error" });
+      return;
+    }
+    if (!sessionKeyModule) {
+      addToast({ title: "Session key module missing", type: "error" });
+      return;
+    }
+    if (!tbaAddress || !tbaDeployed) {
+      addToast({ title: "Deploy TBA first", type: "error" });
+      return;
+    }
+    if (!sessionKey || !isAddress(sessionKey)) {
+      addToast({ title: "Enter a valid session key address", type: "error" });
+      return;
+    }
+    if (!diamondAddress) {
+      addToast({ title: "Diamond address missing", type: "error" });
+      return;
+    }
+    if (!publicClient || !writeContractAsync) {
+      addToast({ title: "Wallet client missing", type: "error" });
+      return;
+    }
+
+    try {
+      setIsInstallingAmm(true);
+      const entity = Number(entityId || 0);
+      if (!Number.isFinite(entity) || entity < 0) {
+        throw new Error("Invalid entity ID");
+      }
+
+      const maxReserve = parseUint(ammMaxReserve);
+      const ttlSeconds = parseUint(ammTtlSeconds);
+      const ttlNumber = ttlSeconds > 0n ? Number(ttlSeconds) : 0;
+
+      // 1) Install AMM execution module on the TBA (if not already installed)
+      try {
+        const manifest = await publicClient.readContract({
+          address: ammSkillModule,
+          abi: positionAgentAmmSkillModuleAbi,
+          functionName: "executionManifest",
+        });
+
+        const installTx = await writeContractAsync({
+          address: tbaAddress,
+          abi: erc6900AccountAbi,
+          functionName: "installExecution",
+          args: [ammSkillModule, manifest, "0x"],
+        });
+        addToast({ title: "Installing AMM skill module", type: "pending" });
+        await publicClient.waitForTransactionReceipt({ hash: installTx });
+      } catch (err) {
+        // ignore if already installed
+        console.warn("AMM module install skipped", err);
+      }
+
+      // 2) Configure AMM module
+      const policy = {
+        enabled: true,
+        allowCancel: true,
+        enforcePoolAllowlist: false,
+        minDuration: 0,
+        maxDuration: ttlNumber > 0 ? ttlNumber : 0,
+        minFeeBps: 0,
+        maxFeeBps: 0,
+        minReserveA: 0n,
+        maxReserveA: maxReserve,
+        minReserveB: 0n,
+        maxReserveB: maxReserve,
+      };
+
+      const setDiamondTx = await writeContractAsync({
+        address: tbaAddress,
+        abi: positionAgentAmmSkillModuleAbi,
+        functionName: "setDiamond",
+        args: [diamondAddress],
+      });
+      addToast({ title: "Configuring AMM skill", type: "pending" });
+      await publicClient.waitForTransactionReceipt({ hash: setDiamondTx });
+
+      const setPolicyTx = await writeContractAsync({
+        address: tbaAddress,
+        abi: positionAgentAmmSkillModuleAbi,
+        functionName: "setAuctionPolicy",
+        args: [policy],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: setPolicyTx });
+
+      // 3) Set session key policy for AMM module selectors
+      const now = Math.floor(Date.now() / 1000);
+      const validUntilValue = ttlNumber > 0 ? BigInt(now + ttlNumber) : 0n;
+      const txHash = await writeContractAsync({
+        address: sessionKeyModule,
+        abi: sessionKeyValidationModuleAbi,
+        functionName: "setSessionKeyPolicy",
+        args: [
+          tbaAddress,
+          entity,
+          sessionKey,
+          0,
+          validUntilValue,
+          0n,
+          0n,
+          [],
+          AMM_ACTION_SELECTORS as `0x${string}`[],
+          [],
+        ],
+      });
+      addToast({ title: "Installing AMM session policy", type: "pending" });
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      addToast({ title: "AMM skill template applied", type: "success" });
+    } catch (err: any) {
+      console.error(err);
+      addToast({ title: "AMM template failed", description: err?.message || "Transaction reverted", type: "error" });
+    } finally {
+      setIsInstallingAmm(false);
+    }
+  };
+
   const handleCreateSessionKey = async () => {
     if (!sessionKeyModule) {
       addToast({ title: "Session key module missing", type: "error" });
@@ -493,8 +625,9 @@ export default function AgentsPage() {
         .map((entry) => entry.trim())
         .filter(Boolean);
 
-      if (selectors.length > 0 && allowedTargets.length === 0) {
-        throw new Error("Provide at least one allowed target");
+      const requiresTargets = selectors.some((selector) => EXECUTE_SELECTORS.includes(selector.toLowerCase()));
+      if (requiresTargets && allowedTargets.length === 0) {
+        throw new Error("Provide at least one allowed target for execute calls");
       }
 
       const invalidTarget = allowedTargets.find((t) => !isAddress(t));
@@ -502,6 +635,9 @@ export default function AgentsPage() {
         throw new Error(`Invalid target address: ${invalidTarget}`);
       }
 
+      if (selectors.length === 0) {
+        throw new Error("Select at least one action");
+      }
       const invalidSelector = selectors.find((sel) => !/^0x[0-9a-fA-F]{8}$/.test(sel));
       if (invalidSelector) {
         throw new Error(`Invalid selector: ${invalidSelector}`);
@@ -687,7 +823,7 @@ export default function AgentsPage() {
   return (
     <AppShell title="Position Agents">
       <div className="space-y-10">
-        <section className="grid gap-6 lg:grid-cols-2">
+        <section className="grid gap-6">
           <Card>
             <SectionHeader title="AGENT SETUP" subtitle="Position NFT binding" />
             <div className="mt-6 space-y-4">
@@ -747,49 +883,21 @@ export default function AgentsPage() {
               </div>
             </div>
           </Card>
-
-          <Card>
-            <SectionHeader title="MEGA SKILL" subtitle="Install once" />
-            <div className="mt-6 space-y-4">
-              <p className="text-xs font-mono text-gray-400">
-                Mega Skill bundles automation modules. MSCA policies determine what the agent can do.
-              </p>
-              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
-                Status: <span className="text-white">Not Installed</span>
-              </div>
-              <ActionButton onClick={() => handlePlaceholder("Install Mega Skill")}>Install Mega Skill</ActionButton>
-            </div>
-          </Card>
-        </section>
-
-        <section>
-          <div className="mb-4">
-            <SectionHeader title="SKILL BROWSER" subtitle="MSCA modules" />
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {SKILL_CATALOG.map((skill) => (
-              <Card key={skill.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-sm font-mono text-white uppercase tracking-[0.2em]">{skill.name}</h3>
-                  <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase text-gray-400">
-                    {skill.status}
-                  </span>
-                </div>
-                <p className="mt-4 text-xs font-mono text-gray-400">{skill.description}</p>
-                <div className="mt-6">
-                  <ActionButton onClick={() => handlePlaceholder(`Install ${skill.name}`)}>
-                    Install
-                  </ActionButton>
-                </div>
-              </Card>
-            ))}
-          </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
           <Card>
             <SectionHeader title="SESSION KEYS" subtitle="Policy builder" />
             <div className="mt-6 space-y-4">
+              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                Need a session key? Run:
+                <div className="mt-2 select-text text-xs font-mono text-white">
+                  pnpm dlx @equalfi/ski
+                </div>
+                <div className="mt-1 text-[10px] text-gray-500">
+                  Generates a local session EOA and stores it in your OS keychain.
+                </div>
+              </div>
               <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
                 SessionKeyValidationModule:
                 <div className="mt-1 text-[10px] text-gray-500">
@@ -802,8 +910,12 @@ export default function AgentsPage() {
               <Field label="Validation Entity ID">
                 <Input value={entityId} onChange={(e) => setEntityId(e.target.value)} />
               </Field>
-              <ActionButton disabled={isInstalling} onClick={handleInstallSessionKey}>
-                {isInstalling ? "Installing…" : "Install Session Key Module"}
+              <ActionButton disabled={isInstalling || sessionModuleInstalled === true} onClick={handleInstallSessionKey}>
+                {sessionModuleInstalled === true
+                  ? "Session Key Module Installed"
+                  : isInstalling
+                    ? "Installing…"
+                    : "Install Session Key Module"}
               </ActionButton>
 
               <Field label="Session Key Address">
@@ -820,6 +932,27 @@ export default function AgentsPage() {
                   onChange={(e) => setAllowedTargetsInput(e.target.value)}
                 />
               </Field>
+
+              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                <div className="text-white">AMM Skill Template</div>
+                <div className="mt-1 text-[10px] text-gray-500">
+                  Two inputs only. We install the AMM module, set its policy, and then create a session-key policy with the required selectors.
+                </div>
+                <div className="mt-2 text-[10px] text-gray-500">
+                  Module: {ammSkillModule || "Not set"}
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="AMM Max Reserve (raw units)">
+                  <Input value={ammMaxReserve} onChange={(e) => setAmmMaxReserve(e.target.value)} />
+                </Field>
+                <Field label="Session TTL (seconds)">
+                  <Input value={ammTtlSeconds} onChange={(e) => setAmmTtlSeconds(e.target.value)} />
+                </Field>
+              </div>
+              <ActionButton disabled={isInstallingAmm} onClick={handleApplyAmmTemplate}>
+                {isInstallingAmm ? "Applying AMM Template…" : "Apply AMM Skill Template"}
+              </ActionButton>
               <Field label="Valid From (unix seconds)">
                 <Input
                   placeholder="0"
@@ -842,22 +975,26 @@ export default function AgentsPage() {
                   <Input value={budget} onChange={(e) => setBudget(e.target.value)} />
                 </Field>
               </div>
-              <Field label="Allowed Selectors">
-                <div className="grid gap-2">
-                  {SESSION_KEY_PRESETS.map((preset) => (
-                    <label key={preset.selector} className="flex items-center gap-2 text-xs text-gray-400">
+              <Field label="Allowed Actions">
+                <div className="grid gap-3">
+                  {ACTION_PRESETS.map((preset) => (
+                    <label key={preset.id} className="flex items-start gap-3 text-xs text-gray-400">
                       <input
                         type="checkbox"
-                        checked={selectors.includes(preset.selector)}
+                        className="mt-0.5"
+                        checked={selectedActions.includes(preset.id)}
                         onChange={(e) => {
-                          setSelectors((prev) =>
+                          setSelectedActions((prev) =>
                             e.target.checked
-                              ? [...prev, preset.selector]
-                              : prev.filter((item) => item !== preset.selector),
+                              ? [...prev, preset.id]
+                              : prev.filter((item) => item !== preset.id),
                           );
                         }}
                       />
-                      {preset.label} · {preset.selector}
+                      <div className="space-y-1">
+                        <div className="text-white">{preset.label}</div>
+                        <div className="text-[10px] text-gray-500">{preset.description}</div>
+                      </div>
                     </label>
                   ))}
                 </div>

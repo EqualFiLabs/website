@@ -102,6 +102,20 @@ export const ammAuctionAbi = [
   },
   {
     type: "function",
+    name: "previewSwap",
+    stateMutability: "view",
+    inputs: [
+      { name: "auctionId", type: "uint256" },
+      { name: "tokenIn", type: "address" },
+      { name: "amountIn", type: "uint256" },
+    ],
+    outputs: [
+      { name: "amountOut", type: "uint256" },
+      { name: "feeAmount", type: "uint256" },
+    ],
+  },
+  {
+    type: "function",
     name: "previewSwapWithSlippage",
     stateMutability: "view",
     inputs: [

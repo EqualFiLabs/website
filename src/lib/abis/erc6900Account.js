@@ -1,6 +1,45 @@
 export const erc6900AccountAbi = [
   {
     inputs: [
+      { internalType: 'address', name: 'module', type: 'address' },
+      {
+        components: [
+          {
+            components: [
+              { internalType: 'bytes4', name: 'executionSelector', type: 'bytes4' },
+              { internalType: 'bool', name: 'skipRuntimeValidation', type: 'bool' },
+              { internalType: 'bool', name: 'allowGlobalValidation', type: 'bool' },
+            ],
+            internalType: 'struct ManifestExecutionFunction[]',
+            name: 'executionFunctions',
+            type: 'tuple[]',
+          },
+          {
+            components: [
+              { internalType: 'bytes4', name: 'executionSelector', type: 'bytes4' },
+              { internalType: 'uint32', name: 'entityId', type: 'uint32' },
+              { internalType: 'bool', name: 'isPreHook', type: 'bool' },
+              { internalType: 'bool', name: 'isPostHook', type: 'bool' },
+            ],
+            internalType: 'struct ManifestExecutionHook[]',
+            name: 'executionHooks',
+            type: 'tuple[]',
+          },
+          { internalType: 'bytes4[]', name: 'interfaceIds', type: 'bytes4[]' },
+        ],
+        internalType: 'struct ExecutionManifest',
+        name: 'manifest',
+        type: 'tuple',
+      },
+      { internalType: 'bytes', name: 'installData', type: 'bytes' },
+    ],
+    name: 'installExecution',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
       { internalType: 'bytes25', name: 'validationConfig', type: 'bytes25' },
       { internalType: 'bytes4[]', name: 'selectors', type: 'bytes4[]' },
       { internalType: 'bytes', name: 'installData', type: 'bytes' },

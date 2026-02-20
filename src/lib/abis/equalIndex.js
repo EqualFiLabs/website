@@ -43,9 +43,10 @@ export const equalIndexFacetV3Abi = [
       { name: 'indexId', type: 'uint256', internalType: 'uint256' },
       { name: 'units', type: 'uint256', internalType: 'uint256' },
       { name: 'to', type: 'address', internalType: 'address' },
+      { name: 'maxInputAmounts', type: 'uint256[]', internalType: 'uint256[]' },
     ],
     outputs: [{ name: 'minted', type: 'uint256', internalType: 'uint256' }],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
   },
   {
     type: 'function',

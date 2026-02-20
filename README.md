@@ -2,6 +2,16 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Session Key Installer (for agent skills)
+
+Generate a local session key (stored in your OS keychain):
+
+```bash
+pnpm dlx @equalfi/ski
+```
+
+Paste the printed address into the **Session Key Address** field in the UI, then click **Install Session Key Module**.
+
 First, run the development server:
 
 ```bash
