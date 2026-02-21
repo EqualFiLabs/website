@@ -166,20 +166,28 @@ export default function ToolsPage() {
   };
 
   const handleApproveNft = async (tokenId: string, tbaAddress: string) => {
-    if (!positionNftAddress) return;
+    console.log('[Tools] handleApproveNft called', { tokenId, tbaAddress, positionNftAddress });
+    if (!positionNftAddress) {
+      console.error('[Tools] No position NFT address');
+      addToast({ title: "Position NFT address not configured", type: "error" });
+      return;
+    }
     setRevoking(tokenId);
     try {
+      console.log('[Tools] Calling writeContractAsync...');
       const tx = await writeContractAsync({
         address: positionNftAddress,
         abi: erc721Abi,
         functionName: "approve",
         args: [tbaAddress as `0x${string}`, BigInt(tokenId)],
       });
+      console.log('[Tools] Transaction submitted:', tx);
       addToast({ title: "Approval submitted", description: `Approving TBA for NFT #${tokenId}...`, type: "pending" });
       await publicClient?.waitForTransactionReceipt({ hash: tx });
       addToast({ title: "Approved", description: `TBA approved for NFT #${tokenId}`, type: "success" });
       await fetchAllowances();
     } catch (err: any) {
+      console.error('[Tools] Approval failed:', err);
       addToast({ title: "Approval failed", description: err.message || "Transaction failed", type: "error" });
     } finally {
       setRevoking(null);
