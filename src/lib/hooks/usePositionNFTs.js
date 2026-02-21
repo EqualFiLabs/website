@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { erc20Abi, formatUnits, parseUnits, maxUint256 } from 'viem'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import usePoolsConfig from './usePoolsConfig'
 import useActivePublicClient from './useActivePublicClient'
 import {
@@ -796,7 +797,7 @@ function usePositionNFTs() {
     }
   }, [publicClient, address, positionNFTAddress, diamondAddress, poolMeta, refreshTrigger])
 
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync } = useBufferedWriteContract()
 
   const refetch = () => setRefreshTrigger((prev) => prev + 1)
 

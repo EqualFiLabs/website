@@ -2,7 +2,8 @@
 import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { formatUnits, parseUnits } from "viem";
 import { ammAuctionAbi, communityAuctionAbi } from "@/lib/abis";
 import { derivativeViewFacetAbi } from "@/lib/abis/derivativeViewFacet";
@@ -15,7 +16,7 @@ import { StatusLine } from "../../app-components";
 
 export default function SwapPage() {
   const { isConnected, address } = useAccount();
-  const { writeContract, isPending } = useWriteContract();
+  const { writeContract, isPending } = useBufferedWriteContract();
   const activeChainId = useActiveChainId();
   const publicClient = useActivePublicClient();
   const poolsConfig = usePoolsConfig();

@@ -3,7 +3,8 @@ import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition
 
 import { useEffect, useMemo, useState } from 'react'
 import { erc20Abi, formatUnits, parseUnits, maxUint256 } from 'viem'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import useActivePublicClient from '@/lib/hooks/useActivePublicClient'
 import { useToasts } from '@/components/common/ToastProvider'
 import usePositionNFTs from '@/lib/hooks/usePositionNFTs'
@@ -25,7 +26,7 @@ function CreditPage() {
   const { addToast } = useToasts()
   const publicClient = useActivePublicClient()
   const { address, isConnected } = useAccount()
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync } = useBufferedWriteContract()
   const { nfts, loading, error, poolMeta, refetch } = usePositionNFTs()
 
   const [selectedPositionKey, setSelectedPositionKey] = useState<string>('')

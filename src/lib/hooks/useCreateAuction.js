@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { decodeEventLog, parseUnits } from 'viem'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { useToasts } from '@/components/common/ToastProvider'
 import useActivePublicClient from './useActivePublicClient'
 import usePoolsConfig from './usePoolsConfig'
@@ -14,7 +15,7 @@ function useCreateAuction() {
   const { addToast } = useToasts()
   const { address, isConnected } = useAccount()
   const publicClient = useActivePublicClient()
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync } = useBufferedWriteContract()
   const poolsConfig = usePoolsConfig()
   const { buildTxUrl } = useExplorerUrl()
   const tokens = useMemo(() => tokensFromConfig(poolsConfig), [poolsConfig])

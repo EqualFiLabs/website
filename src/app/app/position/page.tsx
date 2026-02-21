@@ -3,7 +3,8 @@ import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition
 
 import { useMemo, useState } from "react";
 import { erc20Abi, formatUnits, parseUnits, maxUint256 } from "viem";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import { useToasts } from "@/components/common/ToastProvider";
 import useExplorerUrl from "@/lib/hooks/useExplorerUrl";
@@ -21,7 +22,7 @@ export default function PositionPage() {
   const { addToast } = useToasts();
   const publicClient = useActivePublicClient();
   const { address, isConnected } = useAccount();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useBufferedWriteContract();
   const { buildTxUrl } = useExplorerUrl();
   const { nfts, loading, error, poolOptions, poolMeta, mintPositionNFT, refetch } = usePositionNFTs();
   const [borrowOpen, setBorrowOpen] = useState<boolean>(false);

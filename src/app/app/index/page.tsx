@@ -3,7 +3,8 @@ import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition
 
 import { useEffect, useMemo, useState } from 'react'
 import { decodeEventLog, erc20Abi, formatUnits, isAddress, maxUint256, parseUnits } from 'viem'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { AppShell } from '../../app-shell'
 import useActivePublicClient from '@/lib/hooks/useActivePublicClient'
 import usePoolsConfig from '@/lib/hooks/usePoolsConfig'
@@ -31,7 +32,7 @@ export default function IndexPage() {
   const { addToast } = useToasts()
   const publicClient = useActivePublicClient()
   const { address, isConnected } = useAccount()
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync } = useBufferedWriteContract()
   const { nfts } = usePositionNFTs()
   const poolsConfig = usePoolsConfig()
   const { buildTxUrl } = useExplorerUrl()

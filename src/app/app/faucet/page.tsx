@@ -2,7 +2,8 @@
 import type { PoolConfig, Auction, PositionNFT, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { formatUnits, erc20Abi } from "viem";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import { faucetAbi } from "@/lib/abis/faucet";
@@ -36,7 +37,7 @@ export default function FaucetPage() {
   const { addToast } = useToasts();
   const publicClient = useActivePublicClient();
   const { address, isConnected } = useAccount();
-  const { writeContractAsync, isPending } = useWriteContract();
+  const { writeContractAsync, isPending } = useBufferedWriteContract();
   const chainId = useActiveChainId();
   const poolsConfig = resolvePoolsConfig(chainId);
   const FAUCET_ADDRESS = poolsConfig?.faucetAddress as `0x${string}` | undefined;

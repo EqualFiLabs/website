@@ -3,7 +3,8 @@
 import PropTypes from 'prop-types'
 import { useEffect, useMemo, useState } from 'react'
 import { formatUnits, parseUnits } from 'viem'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { useToasts } from '../common/ToastProvider'
 import useActivePublicClient from '@/lib/hooks/useActivePublicClient'
 import usePoolsConfig from '@/lib/hooks/usePoolsConfig'
@@ -26,7 +27,7 @@ function SoloAddLiquidityModal({ isOpen, auction, onClose, onSuccess }) {
   const { addToast } = useToasts()
   const { address, isConnected } = useAccount()
   const publicClient = useActivePublicClient()
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync } = useBufferedWriteContract()
   const poolsConfig = usePoolsConfig()
   const { buildTxUrl } = useExplorerUrl()
 

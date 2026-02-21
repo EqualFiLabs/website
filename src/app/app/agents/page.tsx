@@ -3,7 +3,8 @@ import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition
 
 import { useEffect, useMemo, useState } from "react";
 import { encodePacked, isAddress, decodeEventLog, encodeFunctionData, erc721Abi } from "viem";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { AppShell } from "../../app-shell";
 import { Card, Field, Input, Select, ActionButton, SectionHeader } from "../../app-components";
 import usePositionNFTs from "@/lib/hooks/usePositionNFTs";
@@ -63,7 +64,7 @@ export default function AgentsPage() {
   const { nfts } = usePositionNFTs();
   const publicClient = useActivePublicClient();
   const { address, isConnected } = useAccount();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
 
   const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || "").trim() as `0x${string}` | "";

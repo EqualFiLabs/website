@@ -2,7 +2,8 @@
 import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useAccount, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
+import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import useActivePublicClient from '@/lib/hooks/useActivePublicClient'
 import useAuctions from '@/lib/hooks/useAuctions'
 import usePositionNFTs from '@/lib/hooks/usePositionNFTs'
@@ -23,7 +24,7 @@ import { AppShell } from '../../app-shell'
 function AuctionManagementPage() {
   const { address, isConnected } = useAccount()
   const publicClient = useActivePublicClient()
-  const { writeContractAsync } = useWriteContract()
+  const { writeContractAsync } = useBufferedWriteContract()
   const { addToast } = useToasts()
   const { auctions, refresh } = useAuctions()
   const { nfts } = usePositionNFTs()

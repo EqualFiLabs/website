@@ -76,3 +76,8 @@ declare module '@/lib/hooks/useCommunityParticipation' {
   }
   export function useCommunityParticipation(auction: Auction): UseCommunityParticipationReturn
 }
+
+declare module '@/lib/hooks/useBufferedWriteContract' {
+  import type { UseWriteContractReturnType } from 'wagmi'
+  export default function useBufferedWriteContract(): UseWriteContractReturnType
+}
