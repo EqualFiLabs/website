@@ -27,7 +27,7 @@ export default function ToolsPage() {
   const [isApproving, setIsApproving] = useState(false);
 
   const diamondAddress = process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`;
-  const positionNftAddress = process.env.NEXT_PUBLIC_POSITION_NFT_ADDRESS as `0x${string}`;
+  const positionNftAddress = process.env.NEXT_PUBLIC_POSITION_NFT as `0x${string}`;
 
   const tokens = (poolsConfig.pools || [])
     .filter((pool: any) => pool.tokenAddress && pool.tokenAddress !== "0x0000000000000000000000000000000000000000")
