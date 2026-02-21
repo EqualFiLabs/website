@@ -2,7 +2,7 @@
 import type { PoolConfig, Auction, PositionNFT, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useWatchAsset } from "wagmi";
 import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { formatUnits, erc20Abi } from "viem";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
@@ -38,6 +38,7 @@ export default function FaucetPage() {
   const publicClient = useActivePublicClient();
   const { address, isConnected } = useAccount();
   const { writeContractAsync, isPending } = useBufferedWriteContract();
+  const { watchAsset } = useWatchAsset();
   const chainId = useActiveChainId();
   const poolsConfig = resolvePoolsConfig(chainId);
   const FAUCET_ADDRESS = poolsConfig?.faucetAddress as `0x${string}` | undefined;
@@ -238,6 +239,12 @@ export default function FaucetPage() {
     }
   };
 
+  const handleAddTokensToWallet = () => {
+    for (const token of tokens) {
+      watchAsset({ type: "ERC20", options: { address: token.address, symbol: token.symbol, decimals: token.decimals } });
+    }
+  };
+
   const totalValue = useMemo(() => {
     // Just count enabled tokens with balance
     return tokens.filter(t => t.enabled && t.balance >= t.amount).length;
@@ -299,6 +306,15 @@ export default function FaucetPage() {
               >
                 {claiming || isPending ? "Claiming..." : "Claim All Tokens"}
               </button>
+
+              {isConnected && tokens.length > 0 && (
+                <button
+                  onClick={handleAddTokensToWallet}
+                  className="min-h-[40px] px-6 rounded-full font-semibold text-xs border border-surface3 text-neutral2 hover:text-neutral1 hover:border-neutral3 transition-all"
+                >
+                  Add Tokens to Wallet
+                </button>
+              )}
             </div>
           </div>
         </div>
