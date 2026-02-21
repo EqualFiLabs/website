@@ -49,6 +49,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <Link href="/app/agents" className="hover:text-white">
               Agents
             </Link>
+            <Link href="/app/tools" className="hover:text-white">
+              Tools
+            </Link>
             <Link href="/app/faucet" className="hover:text-white">
               Faucet
             </Link>
@@ -78,6 +81,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             </Link>
             <Link href="/app/agents" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Agents
+            </Link>
+            <Link href="/app/tools" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
+              Tools
             </Link>
             <Link href="/app/faucet" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Faucet
