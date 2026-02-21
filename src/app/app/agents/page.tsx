@@ -590,6 +590,7 @@ export default function AgentsPage() {
       addToast({ title: "Configuring AMM skill", type: "pending" });
       await publicClient!.waitForTransactionReceipt({ hash: setDiamondTx });
 
+      // Set auction policy
       const setPolicyTx = await writeContractAsync({
         address: tbaAddress,
         abi: positionAgentAmmSkillModuleAbi,
@@ -597,6 +598,19 @@ export default function AgentsPage() {
         args: [policy],
       });
       await publicClient!.waitForTransactionReceipt({ hash: setPolicyTx });
+
+      // Set roll policy (enable rolling yield to position)
+      const rollPolicy = {
+        enabled: true,
+        enforcePoolAllowlist: false,
+      };
+      const setRollPolicyTx = await writeContractAsync({
+        address: tbaAddress,
+        abi: positionAgentAmmSkillModuleAbi,
+        functionName: "setRollPolicy",
+        args: [rollPolicy],
+      });
+      await publicClient!.waitForTransactionReceipt({ hash: setRollPolicyTx });
 
       // 3) Set session key policy for AMM module selectors
       const now = Math.floor(Date.now() / 1000);
