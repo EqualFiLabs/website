@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function AppShell({ children, title }: { children: React.ReactNode; title?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileMenuOpen]);
 
   return (
     <div className="min-h-screen grid-bg bg-surface1 text-neutral1 overflow-x-hidden">
@@ -22,7 +27,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <span className={`block h-0.5 w-full bg-white transition-transform ${mobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
           </button>
 
-          <Link href="/" className="font-bold tracking-widest text-lg">
+          <Link href="/" className="hidden md:inline font-bold tracking-widest text-lg">
             EQUALFI_UI
           </Link>
           <nav className="hidden md:flex items-center gap-4 text-xs font-mono text-gray-400 uppercase tracking-[0.2em]">
