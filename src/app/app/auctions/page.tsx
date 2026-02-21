@@ -194,41 +194,41 @@ function AuctionManagementPage() {
   return (
     <AppShell title="Auctions">
       <div className="mx-auto w-full max-w-[1600px] space-y-8 pointer-events-auto">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-neutral1">Auction Management</h1>
             <p className="text-neutral2">Manage your liquidity positions and auction lifecycles.</p>
           </div>
-          <div className="flex gap-2 bg-surface2 p-1 rounded-full overflow-x-auto">
+          <div className="flex gap-1 bg-surface2 p-1 rounded-full w-fit">
             <button
               onClick={() => {
                 setView('list')
                 setFilter('all')
               }}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
                 view === 'list' && filter === 'all' ? 'bg-surface1 text-neutral1 shadow-sm' : 'text-neutral2 hover:text-neutral1'
               }`}
             >
-              All Auctions
+              All
             </button>
             <button
               onClick={() => {
                 setView('list')
                 setFilter('mine')
               }}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
                 view === 'list' && filter === 'mine' ? 'bg-surface1 text-neutral1 shadow-sm' : 'text-neutral2 hover:text-neutral1'
               }`}
             >
-              My Auctions
+              Mine
             </button>
             <button
               onClick={() => setView('create')}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
                 view === 'create' ? 'bg-surface1 text-neutral1 shadow-sm' : 'text-neutral2 hover:text-neutral1'
               }`}
             >
-              Create New
+              Create
             </button>
           </div>
         </div>
