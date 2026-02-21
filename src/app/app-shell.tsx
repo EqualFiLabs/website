@@ -8,9 +8,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen grid-bg bg-surface1 text-neutral1">
-      <header className="border-b border-white/15 p-4 flex items-center justify-between sticky top-0 bg-black z-50">
-        <div className="flex items-center gap-6">
+    <div className="min-h-screen grid-bg bg-surface1 text-neutral1 overflow-x-hidden">
+      <header className="w-full border-b border-white/15 p-4 flex items-center justify-between sticky top-0 bg-black z-50">
+        <div className="flex items-center gap-6 min-w-0">
           {/* Hamburger Menu Button - Mobile Only */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -105,7 +105,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
         </div>
       )}
 
-      <main className="px-4 md:px-12 py-10 max-w-6xl mx-auto flex flex-col gap-12">
+      <main className="px-4 md:px-12 py-10 max-w-6xl mx-auto flex flex-col gap-12 min-w-0">
         {title && (
           <div className="flex flex-col gap-4">
             <h1 className="text-3xl md:text-4xl font-bold uppercase tracking-tight">{title}</h1>

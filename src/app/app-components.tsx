@@ -20,7 +20,7 @@ export function SectionHeader({ title, subtitle }: { title: string; subtitle?: s
 
 export function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="card-glow h-full min-h-[180px] flex flex-col border border-white/15 bg-black/60 p-6 rounded-xl shadow-none transition-all">
+    <div className="card-glow h-full min-h-[180px] min-w-0 flex flex-col border border-white/15 bg-black/60 p-6 rounded-xl shadow-none transition-all overflow-hidden">
       {children}
     </div>
   );

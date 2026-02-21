@@ -886,7 +886,7 @@ export default function AgentsPage() {
           </Card>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-2">
+        <section className="grid gap-6 lg:grid-cols-2 min-w-0">
           <Card>
             <SectionHeader title="SESSION KEYS" subtitle="Policy builder" />
             <div className="mt-6 space-y-4">
@@ -1009,7 +1009,7 @@ export default function AgentsPage() {
 
           <Card>
             <SectionHeader title="POLICY PREVIEW" subtitle="JSON draft" />
-            <pre className="mt-6 text-xs text-gray-400 bg-black/60 border border-white/10 rounded-lg p-4 overflow-auto">
+            <pre className="mt-6 text-xs text-gray-400 bg-black/60 border border-white/10 rounded-lg p-4 overflow-auto max-w-full break-all whitespace-pre-wrap">
 {JSON.stringify(policyPreview, null, 2)}
             </pre>
           </Card>
