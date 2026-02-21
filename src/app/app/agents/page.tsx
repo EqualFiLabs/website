@@ -536,41 +536,25 @@ export default function AgentsPage() {
       const ttlSeconds = parseUint(ammTtlSeconds);
       const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
 
-      // 1) Check if AMM execution module is already installed
-      let alreadyInstalled = false;
+      // 1) Try to install AMM execution module (skip if already installed)
       try {
-        const diamond = (await publicClient!.readContract({
-          address: tbaAddress,
+        const manifest = await publicClient!.readContract({
+          address: ammSkillModule,
           abi: positionAgentAmmSkillModuleAbi,
-          functionName: "getDiamond",
-        })) as string;
-        alreadyInstalled = Boolean(diamond && diamond !== "0x0000000000000000000000000000000000000000");
-      } catch {
-        alreadyInstalled = false;
-      }
+          functionName: "executionManifest",
+        });
 
-      if (alreadyInstalled) {
+        const installTx = await writeContractAsync({
+          address: tbaAddress,
+          abi: erc6900AccountAbi,
+          functionName: "installExecution",
+          args: [ammSkillModule, manifest, "0x"],
+        });
+        addToast({ title: "Installing AMM skill module (1/4)", type: "pending" });
+        await publicClient!.waitForTransactionReceipt({ hash: installTx });
+      } catch (installErr: any) {
+        // If install fails (selector already installed), continue to configuration
         addToast({ title: "AMM module already installed (1/4)", type: "success" });
-      } else {
-        try {
-          const manifest = await publicClient!.readContract({
-            address: ammSkillModule,
-            abi: positionAgentAmmSkillModuleAbi,
-            functionName: "executionManifest",
-          });
-
-          const installTx = await writeContractAsync({
-            address: tbaAddress,
-            abi: erc6900AccountAbi,
-            functionName: "installExecution",
-            args: [ammSkillModule, manifest, "0x"],
-          });
-          addToast({ title: "Installing AMM skill module (1/4)", type: "pending" });
-          await publicClient!.waitForTransactionReceipt({ hash: installTx });
-        } catch (installErr: any) {
-          addToast({ title: "Install failed - module may already be installed", description: installErr?.message?.slice(0, 100), type: "error" });
-          throw installErr;
-        }
       }
 
       // 2) Configure AMM module
