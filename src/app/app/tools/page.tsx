@@ -45,9 +45,14 @@ export default function ToolsPage() {
     const newNftApprovals: Record<string, string> = {};
 
     try {
-      // Fetch TBA addresses for all NFTs first
+      // Deduplicate NFTs by tokenId (hook returns one per pool)
+      const uniqueNfts = Array.from(
+        new Map((nfts || []).map((nft: any) => [nft.tokenId, nft])).values()
+      );
+
+      // Fetch TBA addresses for unique NFTs
       const nftsWithTba = await Promise.all(
-        (nfts || []).map(async (nft) => {
+        uniqueNfts.map(async (nft: any) => {
           try {
             const tbaAddr = await publicClient.readContract({
               address: diamondAddress,
