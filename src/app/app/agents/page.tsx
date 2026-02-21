@@ -1017,6 +1017,147 @@ export default function AgentsPage() {
               <ActionButton disabled={isInstallingAmm} onClick={handleApplyAmmTemplate}>
                 {isInstallingAmm ? "Applying AMM Template…" : "Apply AMM Skill Template"}
               </ActionButton>
+              
+              <div className="mt-4 pt-4 border-t border-surface2">
+                <p className="text-xs text-neutral3 mb-3">Or run individual steps:</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    onClick={async () => {
+                      if (!ammSkillModule || !tbaAddress || !publicClient) return;
+                      try {
+                        const manifest = await publicClient.readContract({
+                          address: ammSkillModule,
+                          abi: positionAgentAmmSkillModuleAbi,
+                          functionName: "executionManifest",
+                        });
+                        const tx = await writeContractAsync({
+                          address: tbaAddress,
+                          abi: erc6900AccountAbi,
+                          functionName: "installExecution",
+                          args: [ammSkillModule, manifest, "0x"],
+                        });
+                        addToast({ title: "Installing module", type: "pending" });
+                        await publicClient.waitForTransactionReceipt({ hash: tx });
+                        addToast({ title: "Module installed", type: "success" });
+                      } catch (err: any) {
+                        addToast({ title: "Install failed", description: err?.message?.slice(0, 100), type: "error" });
+                      }
+                    }}
+                    disabled={!tbaAddress || !ammSkillModule}
+                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                  >
+                    1. Install Module
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!tbaAddress || !diamondAddress || !publicClient) return;
+                      try {
+                        const tx = await writeContractAsync({
+                          address: tbaAddress,
+                          abi: positionAgentAmmSkillModuleAbi,
+                          functionName: "setDiamond",
+                          args: [diamondAddress],
+                        });
+                        addToast({ title: "Setting Diamond", type: "pending" });
+                        await publicClient.waitForTransactionReceipt({ hash: tx });
+                        addToast({ title: "Diamond configured", type: "success" });
+                      } catch (err: any) {
+                        addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
+                      }
+                    }}
+                    disabled={!tbaAddress || !diamondAddress}
+                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                  >
+                    2. Set Diamond
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!tbaAddress || !publicClient) return;
+                      try {
+                        const maxReserve = parseUint(ammMaxReserve);
+                        const ttlSeconds = parseUint(ammTtlSeconds);
+                        const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
+                        const policy = {
+                          enabled: true,
+                          allowCancel: true,
+                          enforcePoolAllowlist: false,
+                          minDuration: 0,
+                          maxDuration: ttlNumber,
+                          minFeeBps: 0,
+                          maxFeeBps: 0,
+                          minReserveA: BigInt(0),
+                          maxReserveA: maxReserve,
+                          minReserveB: BigInt(0),
+                          maxReserveB: maxReserve,
+                        };
+                        const tx1 = await writeContractAsync({
+                          address: tbaAddress,
+                          abi: positionAgentAmmSkillModuleAbi,
+                          functionName: "setAuctionPolicy",
+                          args: [policy],
+                        });
+                        addToast({ title: "Setting auction policy", type: "pending" });
+                        await publicClient.waitForTransactionReceipt({ hash: tx1 });
+                        
+                        const rollPolicy = { enabled: true, enforcePoolAllowlist: false };
+                        const tx2 = await writeContractAsync({
+                          address: tbaAddress,
+                          abi: positionAgentAmmSkillModuleAbi,
+                          functionName: "setRollPolicy",
+                          args: [rollPolicy],
+                        });
+                        await publicClient.waitForTransactionReceipt({ hash: tx2 });
+                        addToast({ title: "Policies configured", type: "success" });
+                      } catch (err: any) {
+                        addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
+                      }
+                    }}
+                    disabled={!tbaAddress}
+                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                  >
+                    3. Set Policies
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!tbaAddress || !sessionKeyModule || !sessionKey || !publicClient) return;
+                      try {
+                        const entity = Number(entityId || 0);
+                        const now = Math.floor(Date.now() / 1000);
+                        const ttlSeconds = parseUint(ammTtlSeconds);
+                        const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
+                        const validUntilValue = ttlNumber > 0 ? BigInt(now + ttlNumber) : BigInt(0);
+                        const tx = await writeContractAsync({
+                          address: sessionKeyModule,
+                          abi: sessionKeyValidationModuleAbi,
+                          functionName: "setSessionKeyPolicy",
+                          args: [
+                            tbaAddress,
+                            entity,
+                            sessionKey,
+                            0,
+                            validUntilValue,
+                            BigInt(0),
+                            BigInt(0),
+                            [],
+                            AMM_ACTION_SELECTORS as `0x${string}`[],
+                            [],
+                          ],
+                        });
+                        addToast({ title: "Setting session policy", type: "pending" });
+                        await publicClient.waitForTransactionReceipt({ hash: tx });
+                        addToast({ title: "Session policy configured", type: "success" });
+                      } catch (err: any) {
+                        addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
+                      }
+                    }}
+                    disabled={!tbaAddress || !sessionKeyModule || !sessionKey}
+                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                  >
+                    4. Set Session Policy
+                  </button>
+                </div>
+              </div>
+              
               <Field label="Valid From (unix seconds)">
                 <Input
                   placeholder="0"
