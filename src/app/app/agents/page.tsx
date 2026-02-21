@@ -833,6 +833,17 @@ export default function AgentsPage() {
 
   return (
     <AppShell title="Position Agents">
+      <a
+        href="/skills/equalfi-amm-skill.zip"
+        download
+        className="flex items-center justify-between gap-4 rounded-2xl border border-accent1/30 bg-accent1/5 px-5 py-3 text-sm font-mono text-accent1 hover:bg-accent1/10 transition-colors"
+      >
+        <div className="flex flex-col gap-1">
+          <span>↓ Download OpenClaw AMM Agent Skill</span>
+          <code className="text-xs text-accent1/60">curl -LO https://equalfi.org/skills/equalfi-amm-skill.zip</code>
+        </div>
+        <span className="text-xs text-accent1/60">.zip</span>
+      </a>
       <div className="space-y-10">
         <section className="grid gap-6">
           <Card>
