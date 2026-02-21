@@ -50,10 +50,8 @@ function usePositionNFTs() {
     [poolsConfig],
   )
   const [poolMeta, setPoolMeta] = useState(basePoolMeta)
-  const positionNFTAddress =
-    process.env.NEXT_PUBLIC_POSITION_NFT || poolsConfig?.positionNFTAddress || ZERO_ADDRESS
-  const diamondAddress =
-    process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || basePoolMeta[poolOptions[0]]?.lendingPoolAddress || ZERO_ADDRESS
+  const positionNFTAddress = poolsConfig?.positionNFTAddress || ZERO_ADDRESS
+  const diamondAddress = poolsConfig?.diamondAddress || ZERO_ADDRESS
 
   const [nfts, setNfts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -79,12 +77,12 @@ function usePositionNFTs() {
   const extractDirectState = (value) => {
     if (!value) return null
     if (Array.isArray(value)) {
-      return { locked: value[0] ?? 0n, lent: value[1] ?? 0n }
+      return { locked: value[0] ?? BigInt(0), lent: value[1] ?? BigInt(0) }
     }
     if (typeof value === 'object') {
       return {
-        locked: value.locked ?? value.directLockedPrincipal ?? value[0] ?? 0n,
-        lent: value.lent ?? value.directLentPrincipal ?? value[1] ?? 0n,
+        locked: value.locked ?? value.directLockedPrincipal ?? value[0] ?? BigInt(0),
+        lent: value.lent ?? value.directLentPrincipal ?? value[1] ?? BigInt(0),
       }
     }
     return null
@@ -95,12 +93,12 @@ function usePositionNFTs() {
     const hasDirectLent =
       (typeof value === 'object' && value !== null && 'directLent' in value) ||
       (Array.isArray(value) && value.length > 4)
-    const directLocked = value.directLocked ?? value[0] ?? 0n
-    const directLent = value.directLent ?? (hasDirectLent && Array.isArray(value) ? value[1] : 0n)
+    const directLocked = value.directLocked ?? value[0] ?? BigInt(0)
+    const directLent = value.directLent ?? (hasDirectLent && Array.isArray(value) ? value[1] : BigInt(0))
     const directOfferEscrow =
-      value.directOfferEscrow ?? (Array.isArray(value) ? value[hasDirectLent ? 2 : 1] : 0n)
+      value.directOfferEscrow ?? (Array.isArray(value) ? value[hasDirectLent ? 2 : 1] : BigInt(0))
     const indexEncumbered =
-      value.indexEncumbered ?? (Array.isArray(value) ? value[hasDirectLent ? 3 : 2] : 0n)
+      value.indexEncumbered ?? (Array.isArray(value) ? value[hasDirectLent ? 3 : 2] : BigInt(0))
     const totalEncumbered =
       value.totalEncumbered ??
       (Array.isArray(value) ? value[hasDirectLent ? 4 : 3] : directLocked + directOfferEscrow + indexEncumbered + directLent)
@@ -108,11 +106,11 @@ function usePositionNFTs() {
   }
 
   const extractAuctionPage = (value) => {
-    if (!value) return { ids: [], total: 0n }
+    if (!value) return { ids: [], total: BigInt(0) }
     if (Array.isArray(value)) {
-      return { ids: value[0] || [], total: value[1] || 0n }
+      return { ids: value[0] || [], total: value[1] || BigInt(0) }
     }
-    return { ids: value.ids || value[0] || [], total: value.total || value[1] || 0n }
+    return { ids: value.ids || value[0] || [], total: value.total || value[1] || BigInt(0) }
   }
 
   const fetchAuctionEncumbered = async (tokenIds, positionKeys) => {
@@ -120,12 +118,12 @@ function usePositionNFTs() {
     if (!publicClient || !diamondAddress || diamondAddress === ZERO_ADDRESS) return encumbered
     if (!tokenIds?.length) return encumbered
 
-    const limit = 200n
+    const limit = BigInt(200)
     const tokenIdSet = new Set(tokenIds.map((id) => id.toString()))
     const addEncumbered = (tokenIdStr, poolId, amount) => {
-      if (!amount || amount === 0n) return
+      if (!amount || amount === BigInt(0)) return
       const key = `${tokenIdStr}-${Number(poolId)}`
-      encumbered.set(key, (encumbered.get(key) || 0n) + amount)
+      encumbered.set(key, (encumbered.get(key) || BigInt(0)) + amount)
     }
     const keyToTokenId = new Map()
     if (positionKeys) {
@@ -143,7 +141,7 @@ function usePositionNFTs() {
             address: diamondAddress,
             abi: derivativeViewFacetAbi,
             functionName: positionKey ? 'getAuctionsByPosition' : 'getAuctionsByPositionId',
-            args: positionKey ? [positionKey, 0n, limit] : [tokenId, 0n, limit],
+            args: positionKey ? [positionKey, BigInt(0), limit] : [tokenId, BigInt(0), limit],
           })
           const page = extractAuctionPage(pageRaw)
           if (!page.ids?.length) return
@@ -163,8 +161,8 @@ function usePositionNFTs() {
             if (result.status !== 'fulfilled') return
             const auction = result.value
             if (!auction?.active || auction?.finalized) return
-            addEncumbered(tokenIdStr, auction.poolIdA, auction.reserveA ?? 0n)
-            addEncumbered(tokenIdStr, auction.poolIdB, auction.reserveB ?? 0n)
+            addEncumbered(tokenIdStr, auction.poolIdA, auction.reserveA ?? BigInt(0))
+            addEncumbered(tokenIdStr, auction.poolIdB, auction.reserveB ?? BigInt(0))
           })
         } catch (err) {
           if (!isSelectorMissing(err)) {
@@ -180,7 +178,7 @@ function usePositionNFTs() {
           address: diamondAddress,
           abi: derivativeViewFacetAbi,
           functionName: 'getActiveAuctions',
-          args: [0n, limit],
+          args: [BigInt(0), limit],
         })
         const activePage = extractAuctionPage(activeRaw)
         const activeResults = await Promise.allSettled(
@@ -206,8 +204,8 @@ function usePositionNFTs() {
             tokenIdStr = keyToTokenId.get(String(auction.makerPositionKey).toLowerCase())
           }
           if (!tokenIdStr) return
-          addEncumbered(tokenIdStr, auction.poolIdA, auction.reserveA ?? 0n)
-          addEncumbered(tokenIdStr, auction.poolIdB, auction.reserveB ?? 0n)
+          addEncumbered(tokenIdStr, auction.poolIdA, auction.reserveA ?? BigInt(0))
+          addEncumbered(tokenIdStr, auction.poolIdB, auction.reserveB ?? BigInt(0))
         })
       } catch (err) {
         if (!isSelectorMissing(err)) {
@@ -278,10 +276,10 @@ function usePositionNFTs() {
     positionKey,
     directByAsset = null,
     poolDebtRawOverride = null,
-    aciYieldRaw = 0n,
+    aciYieldRaw = BigInt(0),
     directData = {},
   ) => {
-    const { directState, encumbrance, auctionEncumberedRaw = 0n } = directData
+    const { directState, encumbrance, auctionEncumberedRaw = BigInt(0) } = directData
     const tokenIdStr = tokenId.toString()
     const pidNum = Number(poolId ?? state.poolId ?? 0)
     const baseKey = positionKey || ''
@@ -297,16 +295,16 @@ function usePositionNFTs() {
     const aciYield = formatUnits(aciYieldRaw, decimals)
     const assetAddress = poolDetails.tokenAddress?.toLowerCase()
     const assetSummary = assetAddress ? directByAsset?.get(assetAddress) : null
-    const directLockedRaw = assetSummary?.locked ?? 0n
-    const directLentRaw = assetSummary?.lent ?? 0n
+    const directLockedRaw = assetSummary?.locked ?? BigInt(0)
+    const directLentRaw = assetSummary?.lent ?? BigInt(0)
     const directCommittedRaw = directLockedRaw + directLentRaw
     const encumbranceLockedRaw = encumbrance?.directLocked ?? directState?.locked ?? directLockedRaw
-    const encumbranceTotalRaw = encumbrance?.totalEncumbered ?? encumbranceLockedRaw ?? 0n
-    const offerEscrowRaw = encumbrance?.directOfferEscrow ?? 0n
+    const encumbranceTotalRaw = encumbrance?.totalEncumbered ?? encumbranceLockedRaw ?? BigInt(0)
+    const offerEscrowRaw = encumbrance?.directOfferEscrow ?? BigInt(0)
     const fallbackLentRaw = directLentRaw + auctionEncumberedRaw
     let encumbranceLentRaw = directState?.lent ?? fallbackLentRaw
     if (directState?.lent !== undefined && directState?.lent !== null) {
-      encumbranceLentRaw = directState.lent > offerEscrowRaw ? directState.lent - offerEscrowRaw : 0n
+      encumbranceLentRaw = directState.lent > offerEscrowRaw ? directState.lent - offerEscrowRaw : BigInt(0)
     }
     if (auctionEncumberedRaw > encumbranceLentRaw) {
       encumbranceLentRaw = auctionEncumberedRaw
@@ -314,7 +312,7 @@ function usePositionNFTs() {
     const encumbranceHasDirectLent = encumbrance?.directLent !== undefined && encumbrance?.directLent !== null
     let totalEncumberedRaw = encumbranceTotalRaw
     if (encumbranceHasDirectLent) {
-      const baseLent = encumbrance.directLent ?? 0n
+      const baseLent = encumbrance.directLent ?? BigInt(0)
       if (auctionEncumberedRaw > baseLent) {
         totalEncumberedRaw += auctionEncumberedRaw - baseLent
       }
@@ -322,11 +320,11 @@ function usePositionNFTs() {
       totalEncumberedRaw += encumbranceLentRaw
     }
     const poolDebtRaw =
-      poolDebtRawOverride ?? (state.totalDebt > directCommittedRaw ? state.totalDebt - directCommittedRaw : 0n)
+      poolDebtRawOverride ?? (state.totalDebt > directCommittedRaw ? state.totalDebt - directCommittedRaw : BigInt(0))
     const totalDebt = formatUnits(poolDebtRaw, decimals)
-    const rollingDebt = state.rollingLoan.active ? state.rollingLoan.principalRemaining : 0n
+    const rollingDebt = state.rollingLoan.active ? state.rollingLoan.principalRemaining : BigInt(0)
     const rollingCredit = state.rollingLoan.active ? formatUnits(rollingDebt, decimals) : '0'
-    const fixedTermLoans = formatUnits(poolDebtRaw > rollingDebt ? poolDebtRaw - rollingDebt : 0n, decimals)
+    const fixedTermLoans = formatUnits(poolDebtRaw > rollingDebt ? poolDebtRaw - rollingDebt : BigInt(0), decimals)
     const totalEncumbered = Number(formatUnits(totalEncumberedRaw, decimals)).toLocaleString(undefined, {
       maximumFractionDigits: decimals > 6 ? 6 : decimals,
     })
@@ -424,7 +422,7 @@ function usePositionNFTs() {
 
         if (cancelled) return
 
-        if (balance === 0n) {
+        if (balance === BigInt(0)) {
           setNfts([])
           setLoading(false)
           return
@@ -556,7 +554,7 @@ function usePositionNFTs() {
               const positionKey = positionKeyMap[tokenId.toString()]
               const byAsset = directSummaryByAssetMap.get(tokenId.toString()) ?? null
               
-              let aciYieldRaw = 0n
+              let aciYieldRaw = BigInt(0)
               try {
                 aciYieldRaw = await publicClient.readContract({
                   address: diamondAddress,
@@ -598,7 +596,7 @@ function usePositionNFTs() {
                 }
               }
               const auctionKey = `${tokenId.toString()}-${Number(poolIdFromNFT)}`
-              const auctionEncumberedRaw = auctionEncumberedByPool.get(auctionKey) ?? 0n
+              const auctionEncumberedRaw = auctionEncumberedByPool.get(auctionKey) ?? BigInt(0)
 
               positionEntries.push(
                 formatPosition(
@@ -697,7 +695,7 @@ function usePositionNFTs() {
                 const byAsset = directSummaryByAssetMap.get(req.tokenId.toString()) ?? null
                 const poolDebtOverride = poolDebtMap.get(`${req.tokenId.toString()}-${req.poolId.toString()}`) ?? null
                 const aciResult = aciYieldResults[idx]
-                const aciYieldRaw = aciResult?.status === 'fulfilled' ? aciResult.value : 0n
+                const aciYieldRaw = aciResult?.status === 'fulfilled' ? aciResult.value : BigInt(0)
                 const directStateResult = directStateResults[idx]
                 const directState =
                   directStateResult?.status === 'fulfilled' ? extractDirectState(directStateResult.value) : null
@@ -705,7 +703,7 @@ function usePositionNFTs() {
                 const encumbrance =
                   encumbranceResult?.status === 'fulfilled' ? extractEncumbrance(encumbranceResult.value) : null
                 const auctionKey = `${req.tokenId.toString()}-${req.poolId.toString()}`
-                const auctionEncumberedRaw = auctionEncumberedByPool.get(auctionKey) ?? 0n
+                const auctionEncumberedRaw = auctionEncumberedByPool.get(auctionKey) ?? BigInt(0)
 
                 positionEntries.push(
                   formatPosition(
@@ -761,16 +759,16 @@ function usePositionNFTs() {
               directLentPrincipal: '0',
               directCommitted: '0',
               totalEncumbered: '0',
-              principalRaw: 0n,
-              totalDebtRaw: 0n,
-              accruedYieldRaw: 0n,
-              aciYieldRaw: 0n,
-              rollingCreditRaw: 0n,
+              principalRaw: BigInt(0),
+              totalDebtRaw: BigInt(0),
+              accruedYieldRaw: BigInt(0),
+              aciYieldRaw: BigInt(0),
+              rollingCreditRaw: BigInt(0),
               rollingLoanActive: false,
-              directLockedRaw: 0n,
-              directLentRaw: 0n,
-              directCommittedRaw: 0n,
-              totalEncumberedRaw: 0n,
+              directLockedRaw: BigInt(0),
+              directLentRaw: BigInt(0),
+              directCommittedRaw: BigInt(0),
+              totalEncumberedRaw: BigInt(0),
               isDelinquent: false,
               eligibleForPenalty: false,
               membership: { isMember: false, hasBalance: false, hasActiveLoans: false, poolId: null },
@@ -808,7 +806,7 @@ function usePositionNFTs() {
     if (poolId === undefined) return null
     const decimals = poolMeta[poolName]?.decimals ?? 18
     const amountRaw = parseUnits(amount, decimals)
-    if (amountRaw <= 0n) return null
+    if (amountRaw <= BigInt(0)) return null
     const tokenAddress = (poolMeta[poolName]?.tokenAddress || '').trim()
     if (!tokenAddress) return null
     const isNative = tokenAddress.toLowerCase() === ZERO_ADDRESS

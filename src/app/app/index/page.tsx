@@ -1,4 +1,5 @@
 "use client";
+import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from 'react'
 import { decodeEventLog, erc20Abi, formatUnits, isAddress, maxUint256, parseUnits } from 'viem'
@@ -13,9 +14,9 @@ import { useToasts } from '@/components/common/ToastProvider'
 import CreateIndexModal from '@/components/index/CreateIndexModal'
 import { ZERO_ADDRESS } from '@/lib/address'
 
-const INDEX_SCALE = 10n ** 18n
+const INDEX_SCALE = BigInt(10) ** BigInt(18)
 
-const normalizeAddress = (value) => (value ? value.toLowerCase() : '')
+const normalizeAddress = (value: any) => (value ? value.toLowerCase() : '')
 
 const newAssetRow = (assetAddress = '', decimals = '') => ({
   id: `asset-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -35,25 +36,28 @@ export default function IndexPage() {
   const poolsConfig = usePoolsConfig()
   const { buildTxUrl } = useExplorerUrl()
 
-  const diamondAddress =
-    (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolsConfig.pools?.[0]?.lendingPoolAddress || '').trim()
+  const diamondAddress = (poolsConfig.diamondAddress || '').trim()
   const diamondAddressLower = diamondAddress.toLowerCase()
+
+  console.log('[Index] poolsConfig:', poolsConfig)
+  console.log('[Index] diamondAddress:', diamondAddress)
+  console.log('[Index] publicClient chain:', publicClient?.chain?.id)
 
   const assetOptions = useMemo(() => {
     return (poolsConfig.pools || [])
-      .map((pool) => ({
+      .map((pool: PoolConfig) => ({
         id: pool.id,
         address: pool.tokenAddress,
         ticker: pool.ticker || pool.id,
         decimals: pool.decimals ?? 18,
         label: `${pool.ticker || pool.id} (${pool.id})`,
       }))
-      .filter((asset) => asset.address)
+      .filter((asset: any) => asset.address)
   }, [poolsConfig])
 
   const assetMeta = useMemo(() => {
     const map = new Map()
-    assetOptions.forEach((option) => {
+    assetOptions.forEach((option: any) => {
       map.set(normalizeAddress(option.address), option)
     })
     return map
@@ -61,7 +65,7 @@ export default function IndexPage() {
 
   const configIndexOptions = useMemo(
     () =>
-      (poolsConfig.indexTokens || []).map((token, idx) => ({
+      (poolsConfig.indexTokens || []).map((token: any, idx: any) => ({
         indexId: idx,
         label: token.id || token.indexTicker || `Index ${idx}`,
         tokenAddress: token.indexTokenAddress || '',
@@ -69,11 +73,11 @@ export default function IndexPage() {
     [poolsConfig],
   )
 
-  const [createdIndexes, setCreatedIndexes] = useState([])
+  const [createdIndexes, setCreatedIndexes] = useState<any[]>([])
   const indexOptions = useMemo(() => {
     const seen = new Set()
-    const combined = []
-    const add = (option) => {
+    const combined: any[] = []
+    const add = (option: any) => {
       if (seen.has(option.indexId)) return
       seen.add(option.indexId)
       combined.push(option)
@@ -83,26 +87,26 @@ export default function IndexPage() {
     return combined
   }, [configIndexOptions, createdIndexes])
 
-  const [selectedIndexId, setSelectedIndexId] = useState(indexOptions[0]?.indexId ?? 0)
-  const [manualIndexId, setManualIndexId] = useState('')
-  const [indexView, setIndexView] = useState(null)
-  const [indexError, setIndexError] = useState('')
-  const [indexLoading, setIndexLoading] = useState(false)
-  const [userIndexBalance, setUserIndexBalance] = useState(null)
-  const [balanceLoading, setBalanceLoading] = useState(false)
+  const [selectedIndexId, setSelectedIndexId] = useState<any>(indexOptions[0]?.indexId ?? 0)
+  const [manualIndexId, setManualIndexId] = useState<string>('')
+  const [indexView, setIndexView] = useState<any>(null)
+  const [indexError, setIndexError] = useState<string>('')
+  const [indexLoading, setIndexLoading] = useState<boolean>(false)
+  const [userIndexBalance, setUserIndexBalance] = useState<any>(null)
+  const [balanceLoading, setBalanceLoading] = useState<boolean>(false)
 
-  const [mintMode, setMintMode] = useState('wallet')
-  const [units, setUnits] = useState('')
-  const [positionId, setPositionId] = useState('')
+  const [mintMode, setMintMode] = useState<any>('wallet')
+  const [units, setUnits] = useState<string>('')
+  const [positionId, setPositionId] = useState<string>('')
 
-  const [createName, setCreateName] = useState('')
-  const [createSymbol, setCreateSymbol] = useState('')
-  const [createFlashFeeBps, setCreateFlashFeeBps] = useState('0')
-  const [createFeeEth, setCreateFeeEth] = useState('')
-  const [assetRows, setAssetRows] = useState(() => [newAssetRow()])
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [createName, setCreateName] = useState<string>('')
+  const [createSymbol, setCreateSymbol] = useState<string>('')
+  const [createFlashFeeBps, setCreateFlashFeeBps] = useState<any>('0')
+  const [createFeeEth, setCreateFeeEth] = useState<string>('')
+  const [assetRows, setAssetRows] = useState<any>(() => [newAssetRow()])
+  const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false)
 
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
   useEffect(() => {
     if (!assetRows.length) {
@@ -126,8 +130,8 @@ export default function IndexPage() {
       setIndexError('')
       if (!cancelled) setIndexLoading(true)
       try {
-        const view = await publicClient.readContract({
-          address: diamondAddress,
+        const view = await publicClient!.readContract({
+          address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
           functionName: 'getIndex',
           args: [BigInt(selectedIndexId)],
@@ -161,7 +165,7 @@ export default function IndexPage() {
       }
       if (!cancelled) setBalanceLoading(true)
       try {
-        const balance = await publicClient.readContract({
+        const balance = await publicClient!.readContract({
           address: indexView.token,
           abi: erc20Abi,
           functionName: 'balanceOf',
@@ -186,13 +190,13 @@ export default function IndexPage() {
 
   const positionOptions = useMemo(() => {
     const seen = new Map()
-    ;(nfts || []).forEach((nft) => {
+    ;(nfts || []).forEach((nft: PositionNFT) => {
       if (!nft?.tokenId) return
       if (!seen.has(nft.tokenId)) {
         seen.set(nft.tokenId, nft)
       }
     })
-    return Array.from(seen.values()).map((nft) => ({
+    return Array.from(seen.values()).map((nft: PositionNFT) => ({
       tokenId: nft.tokenId,
       label: `#${nft.tokenId}`,
     }))
@@ -201,15 +205,15 @@ export default function IndexPage() {
   const resolvedPositionId = positionId || positionOptions[0]?.tokenId || ''
 
   const parsedUnits = useMemo(() => {
-    if (!units) return 0n
+    if (!units) return BigInt(0)
     try {
       return parseUnits(units, 18)
     } catch {
-      return 0n
+      return BigInt(0)
     }
   }, [units])
 
-  const unitsValid = parsedUnits > 0n && parsedUnits % INDEX_SCALE === 0n
+  const unitsValid = parsedUnits > BigInt(0) && parsedUnits % INDEX_SCALE === BigInt(0)
 
   const mintDisabledReason = useMemo(() => {
     if (!isConnected) return 'Connect wallet to mint or burn.'
@@ -221,15 +225,15 @@ export default function IndexPage() {
   }, [isConnected, indexView, unitsValid, mintMode, resolvedPositionId])
 
   const requiredAssets = useMemo(() => {
-    if (!indexView || parsedUnits <= 0n) return []
+    if (!indexView || parsedUnits <= BigInt(0)) return []
     const assets = indexView.assets || []
     const bundles = indexView.bundleAmounts || []
     const fees = indexView.mintFeeBps || []
-    return assets.map((asset, idx) => {
+    return assets.map((asset: any, idx: any) => {
       const meta = assetMeta.get(normalizeAddress(asset))
       const decimals = meta?.decimals ?? 18
       const base = (bundles[idx] * parsedUnits) / INDEX_SCALE
-      const fee = (base * BigInt(fees[idx] ?? 0)) / 10_000n
+      const fee = (base * BigInt(fees[idx] ?? 0)) / BigInt(10000)
       return {
         asset,
         ticker: meta?.ticker || 'UNK',
@@ -244,10 +248,10 @@ export default function IndexPage() {
   const indexSummary = useMemo(() => {
     if (!indexView) return null
     const assets = indexView.assets || []
-    return assets.map((asset, idx) => {
+    return assets.map((asset: any, idx: any) => {
       const meta = assetMeta.get(normalizeAddress(asset))
       const decimals = meta?.decimals ?? 18
-      const bundle = indexView.bundleAmounts?.[idx] ?? 0n
+      const bundle = indexView.bundleAmounts?.[idx] ?? BigInt(0)
       return {
         address: asset,
         ticker: meta?.ticker || 'UNK',
@@ -264,13 +268,13 @@ export default function IndexPage() {
     if (!diamondAddress) throw new Error('Diamond address missing from config')
   }
 
-  const ensureAllowance = async (tokenAddress, spender, amount) => {
+  const ensureAllowance = async (tokenAddress: any, spender: any, amount: any) => {
     if (normalizeAddress(tokenAddress) === ZERO_ADDRESS) return
-    const allowance = await publicClient.readContract({
+    const allowance = await publicClient!.readContract({
       address: tokenAddress,
       abi: erc20Abi,
       functionName: 'allowance',
-      args: [address, spender],
+      args: [address!, spender],
     })
     if (allowance < amount) {
       const approveTx = await writeContractAsync({
@@ -279,15 +283,15 @@ export default function IndexPage() {
         functionName: 'approve',
         args: [spender, maxUint256],
       })
-      await publicClient.waitForTransactionReceipt({ hash: approveTx })
+      await publicClient!.waitForTransactionReceipt({ hash: approveTx })
     }
   }
 
   const refreshIndexData = async () => {
     if (!publicClient || selectedIndexId === null || selectedIndexId === undefined) return
     try {
-      const view = await publicClient.readContract({
-        address: diamondAddress,
+      const view = await publicClient!.readContract({
+        address: diamondAddress as `0x${string}`,
         abi: equalIndexFacetV3Abi,
         functionName: 'getIndex',
         args: [BigInt(selectedIndexId)],
@@ -298,7 +302,7 @@ export default function IndexPage() {
     }
     if (address && indexView?.token) {
       try {
-        const balance = await publicClient.readContract({
+        const balance = await publicClient!.readContract({
           address: indexView.token,
           abi: erc20Abi,
           functionName: 'balanceOf',
@@ -322,7 +326,7 @@ export default function IndexPage() {
       if (mintMode === 'position') {
         if (!resolvedPositionId) throw new Error('Select a position NFT')
         const txHash = await writeContractAsync({
-          address: diamondAddress,
+          address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
           functionName: 'mintFromPosition',
           args: [BigInt(resolvedPositionId), BigInt(selectedIndexId), parsedUnits],
@@ -333,7 +337,7 @@ export default function IndexPage() {
           type: 'pending',
           link: buildTxUrl(txHash),
         })
-        await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await publicClient!.waitForTransactionReceipt({ hash: txHash })
         await refreshIndexData()
         addToast({
           title: 'Index minted from position',
@@ -342,22 +346,22 @@ export default function IndexPage() {
           link: buildTxUrl(txHash),
         })
       } else {
-        let nativeTotal = 0n
+        let nativeTotal = BigInt(0)
         for (const asset of requiredAssets) {
-          if (asset.total === 0n) continue
+          if (asset.total === BigInt(0)) continue
           if (normalizeAddress(asset.asset) === ZERO_ADDRESS) {
             nativeTotal += asset.total
             continue
           }
           await ensureAllowance(asset.asset, diamondAddress, asset.total)
         }
-        const maxInputAmounts = requiredAssets.map((asset) => asset.total)
+        const maxInputAmounts = requiredAssets.map((asset: any) => asset.total)
         const txHash = await writeContractAsync({
-          address: diamondAddress,
+          address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
           functionName: 'mint',
           args: [BigInt(selectedIndexId), parsedUnits, address, maxInputAmounts],
-          value: nativeTotal > 0n ? nativeTotal : undefined,
+          value: nativeTotal > BigInt(0) ? nativeTotal : undefined,
         })
         addToast({
           title: 'Index mint submitted',
@@ -365,7 +369,7 @@ export default function IndexPage() {
           type: 'pending',
           link: buildTxUrl(txHash),
         })
-        await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await publicClient!.waitForTransactionReceipt({ hash: txHash })
         await refreshIndexData()
         addToast({
           title: 'Index minted',
@@ -378,7 +382,7 @@ export default function IndexPage() {
     } catch (err) {
       addToast({
         title: 'Mint failed',
-        description: err?.message || 'Transaction reverted',
+        description: (err as any)?.message || 'Transaction reverted',
         type: 'error',
       })
     } finally {
@@ -397,7 +401,7 @@ export default function IndexPage() {
       if (mintMode === 'position') {
         if (!resolvedPositionId) throw new Error('Select a position NFT')
         const txHash = await writeContractAsync({
-          address: diamondAddress,
+          address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
           functionName: 'burnFromPosition',
           args: [BigInt(resolvedPositionId), BigInt(selectedIndexId), parsedUnits],
@@ -408,7 +412,7 @@ export default function IndexPage() {
           type: 'pending',
           link: buildTxUrl(txHash),
         })
-        await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await publicClient!.waitForTransactionReceipt({ hash: txHash })
         await refreshIndexData()
         addToast({
           title: 'Index burned from position',
@@ -418,7 +422,7 @@ export default function IndexPage() {
         })
       } else {
         const txHash = await writeContractAsync({
-          address: diamondAddress,
+          address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
           functionName: 'burn',
           args: [BigInt(selectedIndexId), parsedUnits, address],
@@ -429,7 +433,7 @@ export default function IndexPage() {
           type: 'pending',
           link: buildTxUrl(txHash),
         })
-        await publicClient.waitForTransactionReceipt({ hash: txHash })
+        await publicClient!.waitForTransactionReceipt({ hash: txHash })
         await refreshIndexData()
         addToast({
           title: 'Index burned',
@@ -442,7 +446,7 @@ export default function IndexPage() {
     } catch (err) {
       addToast({
         title: 'Burn failed',
-        description: err?.message || 'Transaction reverted',
+        description: (err as any)?.message || 'Transaction reverted',
         type: 'error',
       })
     } finally {
@@ -482,7 +486,7 @@ export default function IndexPage() {
         }
         if (decimals === undefined || decimals === null) {
           try {
-            const onchain = await publicClient.readContract({
+            const onchain = await publicClient!.readContract({
               address: addr,
               abi: erc20Abi,
               functionName: 'decimals',
@@ -503,7 +507,7 @@ export default function IndexPage() {
         } catch {
           throw new Error(`Invalid bundle amount for ${addr}`)
         }
-        if (parsedBundle <= 0n) throw new Error('Bundle amounts must be greater than zero')
+        if (parsedBundle <= BigInt(0)) throw new Error('Bundle amounts must be greater than zero')
         const mintFee = Number(row.mintFeeBps)
         const burnFee = Number(row.burnFeeBps)
         if (!Number.isFinite(mintFee) || mintFee < 0 || mintFee > 1000) {
@@ -524,10 +528,10 @@ export default function IndexPage() {
         throw new Error('Flash fee must be between 0 and 1000 bps')
       }
 
-      const creationFeeWei = createFeeEth ? parseUnits(createFeeEth, 18) : 0n
+      const creationFeeWei = createFeeEth ? parseUnits(createFeeEth, 18) : BigInt(0)
 
       const txHash = await writeContractAsync({
-        address: diamondAddress,
+        address: diamondAddress as `0x${string}`,
         abi: equalIndexFacetV3Abi,
         functionName: 'createIndex',
         args: [
@@ -551,7 +555,7 @@ export default function IndexPage() {
         link: buildTxUrl(txHash),
       })
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash: txHash })
       let createdIndexId = null
       let createdToken = null
 
@@ -565,8 +569,8 @@ export default function IndexPage() {
             topics: log.topics,
           })
           if (decoded.eventName === 'IndexCreated') {
-            createdIndexId = Number(decoded.args.indexId)
-            createdToken = decoded.args.token
+            createdIndexId = Number((decoded.args as any)?.indexId)
+            createdToken = (decoded.args as any)?.token
             break
           }
         } catch {
@@ -583,7 +587,7 @@ export default function IndexPage() {
       })
 
       if (createdIndexId !== null) {
-        setCreatedIndexes((prev) => [
+        setCreatedIndexes((prev: any) => [
           ...prev,
           {
             indexId: createdIndexId,
@@ -602,7 +606,7 @@ export default function IndexPage() {
     } catch (err) {
       addToast({
         title: 'Index creation failed',
-        description: err?.message || 'Transaction reverted',
+        description: (err as any)?.message || 'Transaction reverted',
         type: 'error',
       })
       setIsCreateOpen(false)
@@ -611,9 +615,9 @@ export default function IndexPage() {
     }
   }
 
-  const updateAssetRow = (rowId, patch) => {
-    setAssetRows((rows) =>
-      rows.map((row) => {
+  const updateAssetRow = (rowId: any, patch: any) => {
+    setAssetRows((rows: any) =>
+      rows.map((row: any) => {
         if (row.id !== rowId) return row
         const next = { ...row, ...patch }
         if (Object.prototype.hasOwnProperty.call(patch, 'assetAddress')) {
@@ -631,11 +635,11 @@ export default function IndexPage() {
   }
 
   const handleAddAssetRow = () => {
-    setAssetRows((rows) => [...rows, newAssetRow()])
+    setAssetRows((rows: any) => [...rows, newAssetRow()])
   }
 
-  const handleRemoveAssetRow = (rowId) => {
-    setAssetRows((rows) => rows.filter((row) => row.id !== rowId))
+  const handleRemoveAssetRow = (rowId: any) => {
+    setAssetRows((rows: any) => rows.filter((row: any) => row.id !== rowId))
   }
 
   const handleLoadIndexId = () => {
@@ -685,7 +689,7 @@ export default function IndexPage() {
                     type="number"
                     min="0"
                     value={manualIndexId}
-                    onChange={(e) => setManualIndexId(e.target.value)}
+                    onChange={(e: any) => setManualIndexId(e.target.value)}
                     placeholder="Index ID"
                     className="h-10 w-28 rounded-full border border-surface3 bg-surface2 px-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                   />
@@ -706,11 +710,11 @@ export default function IndexPage() {
                 <select
                   id="index-select"
                   value={selectedIndexId}
-                  onChange={(e) => setSelectedIndexId(Number(e.target.value))}
+                  onChange={(e: any) => setSelectedIndexId(Number(e.target.value))}
                   className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                 >
                   {indexOptions.length ? (
-                    indexOptions.map((option) => (
+                    indexOptions.map((option: any) => (
                       <option key={option.indexId} value={option.indexId}>
                         {option.label} (#{option.indexId})
                       </option>
@@ -735,7 +739,7 @@ export default function IndexPage() {
                   </div>
                   <div className="mt-2 text-xs text-neutral3">
                     Total Units:{' '}
-                    {indexLoading ? '—' : indexView ? formatUnits(indexView.totalUnits || 0n, 18) : '--'}
+                    {indexLoading ? '—' : indexView ? formatUnits(indexView.totalUnits || BigInt(0), 18) : '--'}
                   </div>
                   {isConnected ? (
                     <div className="mt-2 text-xs text-neutral3">
@@ -763,7 +767,7 @@ export default function IndexPage() {
                 <div className="text-xs uppercase tracking-[0.2em] text-neutral3">Bundle Blueprint</div>
                 {indexSummary && indexSummary.length ? (
                   <div className="mt-4 space-y-3 text-sm">
-                    {indexSummary.map((asset) => (
+                    {indexSummary.map((asset: any) => (
                       <div
                         key={`${asset.address}-${asset.ticker}`}
                         className="flex flex-wrap items-center justify-between border-b border-surface2/60 pb-2 last:border-none last:pb-0"
@@ -842,12 +846,12 @@ export default function IndexPage() {
                       min="0"
                       step="1"
                       value={units}
-                      onChange={(e) => setUnits(e.target.value)}
+                      onChange={(e: any) => setUnits(e.target.value)}
                       className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                       placeholder="1"
                     />
                     <div className="flex flex-col gap-1">
-                      {[1, 5, 10].map((quick) => (
+                      {[1, 5, 10].map((quick: any) => (
                         <button
                           key={quick}
                           type="button"
@@ -868,12 +872,12 @@ export default function IndexPage() {
                   <select
                     id="position-select"
                     value={resolvedPositionId}
-                    onChange={(e) => setPositionId(e.target.value)}
+                    onChange={(e: any) => setPositionId(e.target.value)}
                     disabled={mintMode !== 'position'}
                     className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {positionOptions.length ? (
-                      positionOptions.map((option) => (
+                      positionOptions.map((option: any) => (
                         <option key={option.tokenId} value={option.tokenId}>
                           {option.label}
                         </option>
@@ -889,7 +893,7 @@ export default function IndexPage() {
                 {requiredAssets.length ? (
                   <div className="space-y-3">
                     <div className="text-sm font-semibold text-neutral1">Mint Requirements</div>
-                    {requiredAssets.map((asset) => (
+                    {requiredAssets.map((asset: any) => (
                       <div
                         key={asset.asset}
                         className="flex flex-col border-b border-surface2/60 pb-2 last:border-0 last:pb-0"

@@ -47,14 +47,14 @@ export function useCommunityParticipation(auction) {
       if (result.status === 'success' && result.result) {
         const shareValue = typeof result.result === 'object' && 'share' in result.result 
             ? result.result.share 
-            : Array.isArray(result.result) ? result.result[0] : 0n
+            : Array.isArray(result.result) ? result.result[0] : BigInt(0)
 
-        if (shareValue > 0n) {
+        if (shareValue > BigInt(0)) {
           results.push({
             tokenId: uniquePositions[i].tokenId,
             share: shareValue,
-            feesA: result.result.pendingFeesA ?? (Array.isArray(result.result) ? result.result[1] : 0n),
-            feesB: result.result.pendingFeesB ?? (Array.isArray(result.result) ? result.result[2] : 0n),
+            feesA: result.result.pendingFeesA ?? (Array.isArray(result.result) ? result.result[1] : BigInt(0)),
+            feesB: result.result.pendingFeesB ?? (Array.isArray(result.result) ? result.result[2] : BigInt(0)),
           })
         }
       }

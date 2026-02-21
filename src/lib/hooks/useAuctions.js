@@ -76,11 +76,11 @@ function useAuctions() {
           const feeBps = Number(entry.fee_bps ?? raw.feeBps ?? 0)
           const active = Boolean(entry.active ?? raw.active)
           const finalized = Boolean(entry.finalized ?? raw.finalized)
-          const makerFeeA = 0n
-          const makerFeeB = 0n
-          const totalShares = 0n
-          const feeIndexA = 0n
-          const feeIndexB = 0n
+          const makerFeeA = BigInt(0)
+          const makerFeeB = BigInt(0)
+          const totalShares = BigInt(0)
+          const feeIndexA = BigInt(0)
+          const feeIndexB = BigInt(0)
           const makers = null
           const makerIdRaw =
             entry.maker_position_id ??
@@ -112,8 +112,8 @@ function useAuctions() {
             type: entry.type || raw.auctionType || 'solo',
             makers,
             makerPositionId: Number(makerIdRaw),
-            makerFeeA: Number(formatUnits(makerFeeA || 0n, decimalsA)),
-            makerFeeB: Number(formatUnits(makerFeeB || 0n, decimalsB)),
+            makerFeeA: Number(formatUnits(makerFeeA || BigInt(0), decimalsA)),
+            makerFeeB: Number(formatUnits(makerFeeB || BigInt(0), decimalsB)),
             totalShares,
             feeIndexA,
             feeIndexB,

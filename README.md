@@ -33,12 +33,22 @@ Or using psql:
 CREATE DATABASE equalfi;
 ```
 
-Create the auctions table:
+Initialize the database schema:
+
+```bash
+psql equalfi < indexer/sql/schema.sql
+```
+
+Or manually:
 
 ```sql
-CREATE TABLE auctions (
-  id BIGSERIAL,
+CREATE TABLE IF NOT EXISTS auctions (
+  chain_id INTEGER NOT NULL,
+  auction_id BIGINT NOT NULL,
   type TEXT NOT NULL,
+  maker_position_id BIGINT,
+  pool_id_a INTEGER,
+  pool_id_b INTEGER,
   token_a TEXT,
   token_b TEXT,
   reserve_a NUMERIC,
@@ -50,20 +60,21 @@ CREATE TABLE auctions (
   active BOOLEAN,
   finalized BOOLEAN,
   raw JSONB,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  chain_id INTEGER NOT NULL,
-  auction_id BIGINT NOT NULL,
-  maker_position_id BIGINT,
-  pool_id_a INTEGER,
-  pool_id_b INTEGER,
   block_number BIGINT,
   tx_hash TEXT,
-  PRIMARY KEY (chain_id, type, auction_id)
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (chain_id, auction_id)
 );
 
-CREATE INDEX auctions_active_idx ON auctions(active, finalized);
-CREATE INDEX auctions_pair_idx ON auctions(token_a, token_b);
-CREATE INDEX auctions_updated_idx ON auctions(updated_at DESC);
+CREATE TABLE IF NOT EXISTS indexer_state (
+  chain_id INTEGER PRIMARY KEY,
+  last_block BIGINT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS auctions_active_idx ON auctions (active, finalized);
+CREATE INDEX IF NOT EXISTS auctions_pair_idx ON auctions (token_a, token_b);
+CREATE INDEX IF NOT EXISTS auctions_updated_idx ON auctions (updated_at DESC);
 ```
 
 ### 3. Environment Configuration
@@ -71,68 +82,62 @@ CREATE INDEX auctions_updated_idx ON auctions(updated_at DESC);
 Create a `.env.local` file in the `website/` directory:
 
 ```bash
-# RPC Configuration
-NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545
-NEXT_PUBLIC_CHAIN_ID=31337
+# Database Connection
+DATABASE_URL=postgresql://username:password@localhost:5432/equalfi
 
 # WalletConnect Project ID (get from https://cloud.walletconnect.com)
 NEXT_PUBLIC_WC_PROJECT_ID=your_project_id_here
 
-# Contract Addresses (update after deployment)
-NEXT_PUBLIC_DIAMOND_ADDRESS=0xfe5f411481565fbf70d8d33d992c78196e014b90
-NEXT_PUBLIC_POSITION_NFT=0xd6b040736e948621c5b6e0a494473c47a6113ea8
-NEXT_PUBLIC_FAUCET_ADDRESS=0x1343248cbd4e291c6979e70a138f4c774e902561
-NEXT_PUBLIC_OPTION_TOKEN=0x139e1d41943ee15dde4df876f9d0e7f85e26660a
-NEXT_PUBLIC_FUTURES_TOKEN=0xade429ba898c34722e722415d722a70a297ce3a2
+# Indexer Configuration (optional - for running the indexer)
+# Select networks: arbitrum-sepolia,base-sepolia,ethereum-sepolia,anvil
+INDEXER_NETWORKS=anvil
 
-# Pool Underlying Token Addresses
-NEXT_PUBLIC_POOL1_UNDERLYING=0xc1e0a9db9ea830c52603798481045688c8ae99c2
-NEXT_PUBLIC_POOL2_UNDERLYING=0x1c9fd50df7a4f066884b58a05d91e4b55005876a
-NEXT_PUBLIC_POOL3_UNDERLYING=0x71a0b8a2245a9770a4d887ce1e4ecc6c1d4ff28c
-NEXT_PUBLIC_POOL4_UNDERLYING=0xae120f0df055428e45b264e7794a18c54a2a3faf
-NEXT_PUBLIC_POOL5_UNDERLYING=0x9fcca440f19c62cdf7f973eb6ddf218b15d4c71d
-NEXT_PUBLIC_POOL6_UNDERLYING=0x0000000000000000000000000000000000000000
+# Anvil (Local Foundry)
+RPC_URL_ANVIL=http://127.0.0.1:8545
+DIAMOND_ADDRESS_ANVIL=0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3
+START_BLOCK_ANVIL=0
 
-# ERC-6900 Module Addresses
-NEXT_PUBLIC_SESSION_KEY_MODULE=0xd5724171c2b7f0aa717a324626050bd05767e2c6
-NEXT_PUBLIC_AMM_SKILL_MODULE=0x67ad6ea566ba6b0fc52e97bc25ce46120fdac04c
+# Arbitrum Sepolia
+RPC_URL_ARBITRUM_SEPOLIA=https://sepolia-rollup.arbitrum.io/rpc
+DIAMOND_ADDRESS_ARBITRUM_SEPOLIA=0x027c9ba58be0af69c990da55630d9042d067652b
+START_BLOCK_ARBITRUM_SEPOLIA=0
 
-# ERC-8004 Registry Addresses
-NEXT_PUBLIC_IDENTITY_REGISTRY=0xc7143d5ba86553c06f5730c8dc9f8187a621a8d4
-NEXT_PUBLIC_REPUTATION_REGISTRY=0x8004B663056A597Dffe9eCcC1965A193B7388713
-NEXT_PUBLIC_VALIDATION_REGISTRY=0x8004Cb1BF31DAf7788923b405b754f57acEB4272
+# Base Sepolia
+RPC_URL_BASE_SEPOLIA=https://sepolia.base.org
+DIAMOND_ADDRESS_BASE_SEPOLIA=0x027c9ba58be0af69c990da55630d9042d067652b
+START_BLOCK_BASE_SEPOLIA=0
 
-# Database Connection
-DATABASE_URL=postgresql://username:password@localhost:5432/equalfi
+# Ethereum Sepolia
+RPC_URL_ETHEREUM_SEPOLIA=https://rpc.sepolia.org
+DIAMOND_ADDRESS_ETHEREUM_SEPOLIA=0x027c9ba58be0af69c990da55630d9042d067652b
+START_BLOCK_ETHEREUM_SEPOLIA=0
 ```
+
+**Note:** Contract addresses are configured in `src/lib/pools.json` and support multi-chain deployments.
 
 ### 4. Update Pool Configuration
 
-Edit `src/lib/pools.json` with your deployed contract addresses:
+The application uses `src/lib/pools.json` for multi-chain contract addresses. This file is already configured with:
+
+- **Foundry (31337)**: Local development addresses
+- **Testnets (421614, 84532, 11155111)**: Shared addresses for Arbitrum Sepolia, Base Sepolia, and Ethereum Sepolia
+
+After deploying to new networks, update the appropriate section in `pools.json`:
 
 ```json
 {
-  "diamondAddress": "0xfe5f411481565fbf70d8d33d992c78196e014b90",
-  "positionNFTAddress": "0xd6b040736e948621c5b6e0a494473c47a6113ea8",
-  "faucetAddress": "0x1343248cbd4e291c6979e70a138f4c774e902561",
-  "indexTokens": [
-    {
-      "id": "EQ-ETH",
-      "indexTicker": "EQ-ETH",
-      "indexTokenAddress": "0x7d8c5ad52e1d30b8e13c58a5955a1a60613a6459"
-    }
-  ],
-  "pools": [
-    {
-      "id": "rETH",
-      "pid": 1,
-      "tokenName": "Rocket Pool ETH",
-      "ticker": "rETH",
-      "decimals": 18,
-      "tokenAddress": "0xc1e0a9db9ea830c52603798481045688c8ae99c2",
-      "lendingPoolAddress": "0xfe5f411481565fbf70d8d33d992c78196e014b90"
-    }
-  ]
+  "31337": {
+    "diamondAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3",
+    "positionNFTAddress": "0x82c098efe320a6226dda913e286bd309994e310c",
+    "faucetAddress": "0x88d90fDA745Da2487974879D400A5eCe434D811c",
+    "pools": [...]
+  },
+  "testnets": {
+    "diamondAddress": "0x027c9ba58be0af69c990da55630d9042d067652b",
+    "positionNFTAddress": "0x560beed75ba42f99602f8786abc4700c8b4cb1c5",
+    "faucetAddress": "0x88d90fDA745Da2487974879D400A5eCe434D811c",
+    "pools": [...]
+  }
 }
 ```
 
@@ -156,9 +161,7 @@ forge script script/DeployDiamond.s.sol --rpc-url http://127.0.0.1:8545 --broadc
 
 ### Update Contract Addresses
 
-After deployment, update the addresses in:
-1. `.env.local`
-2. `src/lib/pools.json`
+After deployment, update addresses in `src/lib/pools.json` for the appropriate network section.
 
 ### Start Development Server
 
@@ -295,28 +298,40 @@ website/
 - **Derivatives**: Options and futures trading
 - **Agent Wallets**: ERC-6551 token-bound accounts with ERC-6900 modules
 
-## Database Management
+## Auction Indexer
 
-### Auction Indexing
+The indexer automatically tracks auction events across all configured networks.
 
-Auctions must be manually added to the database. Example:
+### Running the Indexer
 
-```sql
-INSERT INTO auctions (
-  auction_id, type, token_a, token_b, reserve_a, reserve_b,
-  pool_id_a, pool_id_b, maker_position_id, fee_bps,
-  active, finalized, chain_id, start_time, end_time
-) VALUES (
-  1, 'solo',
-  '0xc1e0a9db9ea830c52603798481045688c8ae99c2',
-  '0x9fcca440f19c62cdf7f973eb6ddf218b15d4c71d',
-  '5000000000000000000', '15000000000',
-  1, 5, 1, 30,
-  true, false, 31337,
-  EXTRACT(EPOCH FROM NOW())::bigint,
-  EXTRACT(EPOCH FROM NOW() + INTERVAL '30 days')::bigint
-);
+```bash
+# Index all configured networks
+node indexer/index.mjs
+
+# Index specific networks
+node indexer/index.mjs --networks anvil
+node indexer/index.mjs --networks arbitrum-sepolia,base-sepolia,ethereum-sepolia
+
+# Or use environment variable
+INDEXER_NETWORKS=anvil node indexer/index.mjs
 ```
+
+### Configuration
+
+Networks are configured in `indexer/config.mjs`. Each network requires:
+- `RPC_URL_*` - RPC endpoint
+- `DIAMOND_ADDRESS_*` - Deployed Diamond contract address
+- `START_BLOCK_*` (optional) - Block to start indexing from
+
+The indexer will:
+- Automatically create database tables on first run
+- Track last indexed block per chain in `indexer_state` table
+- Resume from last block on restart
+- Skip networks with missing configuration
+
+See `indexer/README.md` for more details.
+
+## Database Management
 
 ### Backup and Restore
 
@@ -338,18 +353,25 @@ psql equalfi < equalfi_backup.sql
 - Ensure database exists: `psql -l | grep equalfi`
 
 **Issue**: "Contract call reverted"
-- Verify contract addresses in `.env.local` and `pools.json`
-- Check RPC endpoint is accessible
+- Verify you're connected to the correct network in your wallet
+- Check contract addresses in `pools.json` match your connected network
 - Ensure wallet has sufficient gas
 
 **Issue**: "Auctions not displaying"
+- Ensure the indexer is running: `node indexer/index.mjs`
 - Check database has auction records: `psql equalfi -c "SELECT * FROM auctions;"`
-- Verify token addresses match deployed contracts
+- Verify indexer is configured for the correct network
 - Hard refresh browser (Ctrl+Shift+R)
 
 **Issue**: "Expected Share (%) shows 0"
-- This was fixed - ensure you're on latest code
+- This was fixed in recent updates
+- Ensure you're on the latest code
 - Check browser console for calculation logs
+
+**Issue**: "Indexer not finding events"
+- Verify `DIAMOND_ADDRESS_*` matches deployed contract
+- Check `START_BLOCK_*` is set to deployment block or earlier
+- Ensure RPC endpoint is accessible and not rate-limited
 
 ### Debug Mode
 
@@ -363,23 +385,21 @@ NEXT_PUBLIC_DEBUG=true pnpm dev
 
 ### Supported Networks
 
-The application supports multiple networks with canonical registry addresses:
+The application supports multiple networks:
 
-- **Ethereum Mainnet** (chainid: 1)
-- **Sepolia Testnet** (chainid: 11155111)
-- **Arbitrum One** (chainid: 42161)
-- **Arbitrum Sepolia** (chainid: 421614)
-- **Base** (chainid: 8453)
-- **Base Sepolia** (chainid: 84532)
-- **Optimism** (chainid: 10)
-- **Optimism Sepolia** (chainid: 11155420)
+- **Foundry Local** (chainId: 31337)
+- **Arbitrum Sepolia** (chainId: 421614)
+- **Base Sepolia** (chainId: 84532)
+- **Ethereum Sepolia** (chainId: 11155111)
+
+Network switching is handled automatically by the UI based on the connected wallet's network.
 
 ### Adding a New Network
 
-1. Update `NEXT_PUBLIC_CHAIN_ID` in `.env.local`
-2. Update `NEXT_PUBLIC_RPC_URL` with network RPC endpoint
+1. Add network configuration to `indexer/config.mjs`
+2. Add corresponding env vars for RPC URL, Diamond address, and start block
 3. Deploy contracts to the new network
-4. Update all contract addresses in configuration files
+4. Update `src/lib/pools.json` with new network section (or add to "testnets" if addresses match)
 
 ## API Reference
 

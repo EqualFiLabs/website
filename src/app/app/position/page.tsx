@@ -1,4 +1,5 @@
 "use client";
+import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useMemo, useState } from "react";
 import { erc20Abi, formatUnits, parseUnits, maxUint256 } from "viem";
@@ -23,23 +24,23 @@ export default function PositionPage() {
   const { writeContractAsync } = useWriteContract();
   const { buildTxUrl } = useExplorerUrl();
   const { nfts, loading, error, poolOptions, poolMeta, mintPositionNFT, refetch } = usePositionNFTs();
-  const [borrowOpen, setBorrowOpen] = useState(false);
-  const [repayOpen, setRepayOpen] = useState(false);
-  const [selectedPositionId, setSelectedPositionId] = useState(null);
-  const [actionModal, setActionModal] = useState(null);
-  const [actionAmount, setActionAmount] = useState("");
-  const [actionPool, setActionPool] = useState(poolOptions[0] || "");
-  const [actionTokenId, setActionTokenId] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [borrowOpen, setBorrowOpen] = useState<boolean>(false);
+  const [repayOpen, setRepayOpen] = useState<boolean>(false);
+  const [selectedPositionId, setSelectedPositionId] = useState<any>(null);
+  const [actionModal, setActionModal] = useState<any>(null);
+  const [actionAmount, setActionAmount] = useState<any>("");
+  const [actionPool, setActionPool] = useState<any>(poolOptions[0] || "");
+  const [actionTokenId, setActionTokenId] = useState<any>(null);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
 
-  const selectedNFT = useMemo(
-    () => nfts?.find((nft) => nft.positionKey === selectedPositionId) || null,
+  const selectedNFT: PositionNFT | null = useMemo(
+    () => nfts?.find((nft: PositionNFT) => nft.positionKey === selectedPositionId) || null,
     [nfts, selectedPositionId]
   );
   const uniqueTokens = useMemo(() => {
     const seen = new Set();
     return (
-      nfts?.filter((nft) => {
+      nfts?.filter((nft: PositionNFT) => {
         if (seen.has(nft.tokenId)) return false;
         seen.add(nft.tokenId);
         return true;
@@ -48,7 +49,7 @@ export default function PositionPage() {
   }, [nfts]);
   const fixedLoans = useMemo(
     () =>
-      selectedNFT?.fixedLoanIds?.map((id) => ({
+      selectedNFT?.fixedLoanIds?.map((id: bigint) => ({
         id: Number(id),
         principal: Number.POSITIVE_INFINITY,
       })) ?? [],
@@ -57,22 +58,22 @@ export default function PositionPage() {
   const rollingBalance = useMemo(() => {
     if (!selectedNFT) return 0;
     const decimals = selectedNFT.decimals ?? 18;
-    return Number(formatUnits(selectedNFT.rollingCreditRaw ?? 0n, decimals));
+    return Number(formatUnits(selectedNFT.rollingCreditRaw ?? BigInt(0), decimals));
   }, [selectedNFT]);
   const maxBorrowable = useMemo(() => {
     if (!selectedNFT) return 0;
     const decimals = selectedNFT.decimals ?? 18;
-    const principal = Number(formatUnits(selectedNFT.principalRaw ?? 0n, decimals));
-    const debt = Number(formatUnits(selectedNFT.totalDebtRaw ?? 0n, decimals));
+    const principal = Number(formatUnits(selectedNFT.principalRaw ?? BigInt(0), decimals));
+    const debt = Number(formatUnits(selectedNFT.totalDebtRaw ?? BigInt(0), decimals));
 
-    const poolConfig = poolMeta[selectedNFT.poolName];
+    const poolConfig = poolMeta[selectedNFT!.poolName];
     const ltvBps = poolConfig?.depositorLTVBps ?? 0;
 
     const headroom = (principal * ltvBps) / 10000 - debt;
     return headroom > 0 ? headroom : 0;
   }, [selectedNFT, poolMeta]);
 
-  const resolvePoolDetails = (poolName) => poolMeta[poolName] ?? {};
+  const resolvePoolDetails = (poolName: any) => poolMeta[poolName] ?? {};
 
   const ensureWalletReady = () => {
     if (!publicClient || !writeContractAsync) {
@@ -83,15 +84,15 @@ export default function PositionPage() {
     }
   };
 
-  const handleActionError = (title, err) => {
+  const handleActionError = (title: any, err: any) => {
     addToast({
       title,
-      description: err?.message || "Transaction failed",
+      description: (err as any)?.message || "Transaction failed",
       type: "error",
     });
   };
 
-  const handleTxToast = (title, hash) => {
+  const handleTxToast = (title: any, hash: any) => {
     addToast({
       title,
       description: `Tx: ${hash}`,
@@ -99,7 +100,7 @@ export default function PositionPage() {
     });
   };
 
-  const handleMint = async (poolName, amount) => {
+  const handleMint = async (poolName: any, amount: any) => {
     const result = await mintPositionNFT(poolName, amount);
     if (result) {
       addToast({
@@ -108,7 +109,7 @@ export default function PositionPage() {
         type: "pending",
         link: buildTxUrl(result.hash),
       });
-      await publicClient.waitForTransactionReceipt({ hash: result.hash });
+      await publicClient!.waitForTransactionReceipt({ hash: result.hash });
       addToast({
         title: "Position NFT minted",
         description: `Successfully minted in ${poolName}`,
@@ -125,7 +126,7 @@ export default function PositionPage() {
     }
   };
 
-  const openActionModal = (kind, tokenId, poolName) => {
+  const openActionModal = (kind: any, tokenId: any, poolName: any) => {
     setActionModal(kind);
     setActionAmount("");
     setActionPool(poolName || poolOptions[0] || "");
@@ -149,35 +150,35 @@ export default function PositionPage() {
 
       const decimals = poolDetails.decimals ?? 18;
       const parsedAmount = parseUnits(actionAmount || "0", decimals);
-      if (parsedAmount <= 0n) throw new Error("Enter an amount above zero");
+      if (parsedAmount <= BigInt(0)) throw new Error("Enter an amount above zero");
 
       if (!isNative) {
-        const allowance = await publicClient.readContract({
-          address: tokenAddress,
+        const allowance = await publicClient!.readContract({
+          address: tokenAddress as `0x${string}`,
           abi: erc20Abi,
           functionName: "allowance",
-          args: [address, lendingAddress],
+          args: [address!, lendingAddress as `0x${string}`],
         });
 
         if (allowance < parsedAmount) {
           const approveTx = await writeContractAsync({
-            address: tokenAddress,
+            address: tokenAddress as `0x${string}`,
             abi: erc20Abi,
             functionName: "approve",
-            args: [lendingAddress, maxUint256],
+            args: [lendingAddress as `0x${string}`, maxUint256],
           });
-          await publicClient.waitForTransactionReceipt({ hash: approveTx });
+          await publicClient!.waitForTransactionReceipt({ hash: approveTx });
         }
       }
 
       const depositTx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: positionManagementFacetAbi,
         functionName: "depositToPosition",
         args: [BigInt(tokenId), BigInt(pid), parsedAmount, parsedAmount],
         value: isNative ? parsedAmount : undefined,
       });
-      await publicClient.waitForTransactionReceipt({ hash: depositTx });
+      await publicClient!.waitForTransactionReceipt({ hash: depositTx });
       handleTxToast("Deposit confirmed", depositTx);
       refetch();
     } catch (err) {
@@ -202,15 +203,15 @@ export default function PositionPage() {
 
       const decimals = poolDetails.decimals ?? 18;
       const parsedAmount = parseUnits(actionAmount || "0", decimals);
-      if (parsedAmount <= 0n) throw new Error("Enter an amount above zero");
+      if (parsedAmount <= BigInt(0)) throw new Error("Enter an amount above zero");
 
       const withdrawTx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: positionManagementFacetAbi,
         functionName: "withdrawFromPosition",
-        args: [BigInt(tokenId), BigInt(pid), parsedAmount, 0n],
+        args: [BigInt(tokenId), BigInt(pid), parsedAmount, BigInt(0)],
       });
-      await publicClient.waitForTransactionReceipt({ hash: withdrawTx });
+      await publicClient!.waitForTransactionReceipt({ hash: withdrawTx });
       handleTxToast("Withdraw confirmed", withdrawTx);
       refetch();
     } catch (err) {
@@ -223,7 +224,7 @@ export default function PositionPage() {
 
   const resolveBorrowContext = () => {
     if (!selectedNFT) throw new Error("Select a pool position first");
-    const poolDetails = resolvePoolDetails(selectedNFT.poolName);
+    const poolDetails = resolvePoolDetails(selectedNFT!.poolName);
     const pid = poolDetails.pid ?? selectedNFT.poolId;
     if (pid === undefined || pid === null) throw new Error("Pool ID missing for selected pool");
     const lendingAddress = (poolDetails.lendingPoolAddress ?? "").trim();
@@ -231,21 +232,21 @@ export default function PositionPage() {
     return { poolDetails, pid, lendingAddress };
   };
 
-  const handleBorrowRolling = async (amount) => {
+  const handleBorrowRolling = async (amount: any) => {
     try {
       ensureWalletReady();
       const { poolDetails, pid, lendingAddress } = resolveBorrowContext();
       const decimals = poolDetails.decimals ?? 18;
       const parsedAmount = parseUnits(amount?.toString?.() || "0", decimals);
-      if (parsedAmount <= 0n) throw new Error("Enter an amount above zero");
+      if (parsedAmount <= BigInt(0)) throw new Error("Enter an amount above zero");
 
       const borrowTx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: lendingFacetAbi,
         functionName: "openRollingFromPosition",
-        args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, 0n],
+        args: [BigInt(selectedNFT!.tokenId), BigInt(pid), parsedAmount, BigInt(0)],
       });
-      await publicClient.waitForTransactionReceipt({ hash: borrowTx });
+      await publicClient!.waitForTransactionReceipt({ hash: borrowTx });
       handleTxToast("Borrow confirmed", borrowTx);
       refetch();
     } catch (err) {
@@ -253,21 +254,21 @@ export default function PositionPage() {
     }
   };
 
-  const handleBorrowFixed = async (termIndex, amount) => {
+  const handleBorrowFixed = async (termIndex: any, amount: any) => {
     try {
       ensureWalletReady();
       const { poolDetails, pid, lendingAddress } = resolveBorrowContext();
       const decimals = poolDetails.decimals ?? 18;
       const parsedAmount = parseUnits(amount?.toString?.() || "0", decimals);
-      if (parsedAmount <= 0n) throw new Error("Enter an amount above zero");
+      if (parsedAmount <= BigInt(0)) throw new Error("Enter an amount above zero");
 
       const borrowTx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: lendingFacetAbi,
         functionName: "openFixedFromPosition",
-        args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, BigInt(termIndex), 0n],
+        args: [BigInt(selectedNFT!.tokenId), BigInt(pid), parsedAmount, BigInt(termIndex), BigInt(0)],
       });
-      await publicClient.waitForTransactionReceipt({ hash: borrowTx });
+      await publicClient!.waitForTransactionReceipt({ hash: borrowTx });
       handleTxToast("Borrow confirmed", borrowTx);
       refetch();
     } catch (err) {
@@ -275,44 +276,44 @@ export default function PositionPage() {
     }
   };
 
-  const handleRepayRolling = async (amount) => {
+  const handleRepayRolling = async (amount: any) => {
     try {
       ensureWalletReady();
       const { poolDetails, pid, lendingAddress } = resolveBorrowContext();
       const decimals = poolDetails.decimals ?? 18;
       const parsedAmount = parseUnits(amount?.toString?.() || "0", decimals);
-      if (parsedAmount <= 0n) throw new Error("Enter an amount above zero");
+      if (parsedAmount <= BigInt(0)) throw new Error("Enter an amount above zero");
       const tokenAddress = poolDetails.tokenAddress?.trim();
-      if (!tokenAddress) throw new Error(`Token address missing for pool ${selectedNFT.poolName}`);
+      if (!tokenAddress) throw new Error(`Token address missing for pool ${selectedNFT!.poolName}`);
       const isNative = tokenAddress.toLowerCase() === ZERO_ADDRESS;
 
       if (!isNative) {
-        const allowance = await publicClient.readContract({
-          address: tokenAddress,
+        const allowance = await publicClient!.readContract({
+          address: tokenAddress as `0x${string}`,
           abi: erc20Abi,
           functionName: "allowance",
-          args: [address, lendingAddress],
+          args: [address!, lendingAddress as `0x${string}`],
         });
 
         if (allowance < parsedAmount) {
           const approveTx = await writeContractAsync({
-            address: tokenAddress,
+            address: tokenAddress as `0x${string}`,
             abi: erc20Abi,
             functionName: "approve",
-            args: [lendingAddress, maxUint256],
+            args: [lendingAddress as `0x${string}`, maxUint256],
           });
-          await publicClient.waitForTransactionReceipt({ hash: approveTx });
+          await publicClient!.waitForTransactionReceipt({ hash: approveTx });
         }
       }
 
       const repayTx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: lendingFacetAbi,
         functionName: "makePaymentFromPosition",
-        args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, parsedAmount],
+        args: [BigInt(selectedNFT!.tokenId), BigInt(pid), parsedAmount, parsedAmount],
         value: isNative ? parsedAmount : undefined,
       });
-      await publicClient.waitForTransactionReceipt({ hash: repayTx });
+      await publicClient!.waitForTransactionReceipt({ hash: repayTx });
       handleTxToast("Repay confirmed", repayTx);
       refetch();
     } catch (err) {
@@ -320,45 +321,45 @@ export default function PositionPage() {
     }
   };
 
-  const handleRepayFixed = async (loanId, amount) => {
+  const handleRepayFixed = async (loanId: any, amount: any) => {
     try {
       ensureWalletReady();
       const { poolDetails, pid, lendingAddress } = resolveBorrowContext();
       const decimals = poolDetails.decimals ?? 18;
       const parsedAmount = parseUnits(amount?.toString?.() || "0", decimals);
-      if (parsedAmount <= 0n) throw new Error("Enter an amount above zero");
+      if (parsedAmount <= BigInt(0)) throw new Error("Enter an amount above zero");
       if (!loanId && loanId !== 0) throw new Error("Select a loan to repay");
       const tokenAddress = poolDetails.tokenAddress?.trim();
-      if (!tokenAddress) throw new Error(`Token address missing for pool ${selectedNFT.poolName}`);
+      if (!tokenAddress) throw new Error(`Token address missing for pool ${selectedNFT!.poolName}`);
       const isNative = tokenAddress.toLowerCase() === ZERO_ADDRESS;
 
       if (!isNative) {
-        const allowance = await publicClient.readContract({
-          address: tokenAddress,
+        const allowance = await publicClient!.readContract({
+          address: tokenAddress as `0x${string}`,
           abi: erc20Abi,
           functionName: "allowance",
-          args: [address, lendingAddress],
+          args: [address!, lendingAddress as `0x${string}`],
         });
 
         if (allowance < parsedAmount) {
           const approveTx = await writeContractAsync({
-            address: tokenAddress,
+            address: tokenAddress as `0x${string}`,
             abi: erc20Abi,
             functionName: "approve",
-            args: [lendingAddress, maxUint256],
+            args: [lendingAddress as `0x${string}`, maxUint256],
           });
-          await publicClient.waitForTransactionReceipt({ hash: approveTx });
+          await publicClient!.waitForTransactionReceipt({ hash: approveTx });
         }
       }
 
       const repayTx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: lendingFacetAbi,
         functionName: "repayFixedFromPosition",
-        args: [BigInt(selectedNFT.tokenId), BigInt(pid), BigInt(loanId), parsedAmount, parsedAmount],
+        args: [BigInt(selectedNFT!.tokenId), BigInt(pid), BigInt(loanId), parsedAmount, parsedAmount],
         value: isNative ? parsedAmount : undefined,
       });
-      await publicClient.waitForTransactionReceipt({ hash: repayTx });
+      await publicClient!.waitForTransactionReceipt({ hash: repayTx });
       handleTxToast("Repay confirmed", repayTx);
       refetch();
     } catch (err) {
@@ -366,9 +367,9 @@ export default function PositionPage() {
     }
   };
 
-  const handleCompound = async (positionKey) => {
+  const handleCompound = async (positionKey: any) => {
     if (!positionKey) return;
-    const targetNFT = nfts?.find((nft) => nft.positionKey === positionKey);
+    const targetNFT = nfts?.find((nft: PositionNFT) => nft.positionKey === positionKey);
     if (!targetNFT) return;
     try {
       ensureWalletReady();
@@ -379,12 +380,12 @@ export default function PositionPage() {
       if (!lendingAddress) throw new Error("Lending pool address missing for selected pool");
 
       const tx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: positionManagementFacetAbi,
         functionName: "rollYieldToPosition",
         args: [BigInt(targetNFT.tokenId), BigInt(pid)],
       });
-      await publicClient.waitForTransactionReceipt({ hash: tx });
+      await publicClient!.waitForTransactionReceipt({ hash: tx });
       handleTxToast("Compound confirmed", tx);
       refetch();
     } catch (err) {
@@ -392,9 +393,9 @@ export default function PositionPage() {
     }
   };
 
-  const handleLeavePool = async (positionKey) => {
+  const handleLeavePool = async (positionKey: any) => {
     if (!positionKey) return;
-    const targetNFT = nfts?.find((nft) => nft.positionKey === positionKey);
+    const targetNFT = nfts?.find((nft: PositionNFT) => nft.positionKey === positionKey);
     if (!targetNFT) return;
     try {
       ensureWalletReady();
@@ -405,12 +406,12 @@ export default function PositionPage() {
       if (!lendingAddress) throw new Error("Lending pool address missing for selected pool");
 
       const tx = await writeContractAsync({
-        address: lendingAddress,
+        address: lendingAddress as `0x${string}`,
         abi: positionManagementFacetAbi,
         functionName: "closePoolPosition",
         args: [BigInt(targetNFT.tokenId), BigInt(pid)],
       });
-      await publicClient.waitForTransactionReceipt({ hash: tx });
+      await publicClient!.waitForTransactionReceipt({ hash: tx });
       handleTxToast("Pool closed", tx);
       refetch();
     } catch (err) {
@@ -423,10 +424,10 @@ export default function PositionPage() {
     rollingLoan: { balance: rollingBalance },
     fixedLoans,
     actions: {
-      borrowRolling: async (amount) => handleBorrowRolling(amount),
-      borrowFixed: async (termIndex, amount) => handleBorrowFixed(termIndex, amount),
-      repayRolling: async (amount) => handleRepayRolling(amount),
-      repayFixed: async (id, amount) => handleRepayFixed(id, amount),
+      borrowRolling: async (amount: any) => handleBorrowRolling(amount),
+      borrowFixed: async (termIndex: any, amount: any) => handleBorrowFixed(termIndex, amount),
+      repayRolling: async (amount: any) => handleRepayRolling(amount),
+      repayFixed: async (id: any, amount: any) => handleRepayFixed(id, amount),
       rollYield: async () => handleCompound(selectedPositionId),
     },
   };
@@ -442,7 +443,7 @@ export default function PositionPage() {
           nfts={nfts}
           loading={loading}
           error={error}
-          poolOptions={poolOptions}
+          poolOptions={poolOptions as any}
           poolMeta={poolMeta}
           onSelectPosition={setSelectedPositionId}
           selectedPositionId={selectedPositionId}
@@ -454,8 +455,9 @@ export default function PositionPage() {
           showBorrowRepay
           onCompound={handleCompound}
           onLeavePool={handleLeavePool}
-          onDepositClick={(tokenId) => openActionModal("deposit", tokenId, selectedNFT?.poolName)}
-          onWithdrawClick={(tokenId) => openActionModal("withdraw", tokenId, selectedNFT?.poolName)}
+          onCopy={(text: string) => navigator.clipboard.writeText(text)}
+          onDepositClick={(tokenId: string) => openActionModal("deposit", tokenId, selectedNFT?.poolName)}
+          onWithdrawClick={(tokenId: string) => openActionModal("withdraw", tokenId, selectedNFT?.poolName)}
           publicClient={publicClient}
         />
 
@@ -472,7 +474,7 @@ export default function PositionPage() {
           actionLabel="Confirm deposit"
           loading={actionLoading}
           pool={actionPool}
-          poolOptions={poolOptions}
+          poolOptions={poolOptions as any}
           onPoolChange={setActionPool}
           nfts={uniqueTokens}
           selectedTokenId={actionTokenId}
@@ -488,7 +490,7 @@ export default function PositionPage() {
           actionLabel="Confirm withdraw"
           loading={actionLoading}
           pool={actionPool}
-          poolOptions={poolOptions}
+          poolOptions={poolOptions as any}
           onPoolChange={setActionPool}
           nfts={uniqueTokens}
           selectedTokenId={actionTokenId}

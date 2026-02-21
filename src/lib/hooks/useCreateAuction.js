@@ -114,7 +114,7 @@ function useCreateAuction() {
 
       const reserveA = parseUnits(state.reserveA, poolA.decimals ?? 18)
       const reserveB = parseUnits(state.reserveB, poolB.decimals ?? 18)
-      if (reserveA <= 0n || reserveB <= 0n) throw new Error('Reserve values must be above zero')
+      if (reserveA <= BigInt(0) || reserveB <= BigInt(0)) throw new Error('Reserve values must be above zero')
 
       const diamondAddress =
         (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA.lendingPoolAddress || '').trim()

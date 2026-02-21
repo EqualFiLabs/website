@@ -1,4 +1,5 @@
 "use client";
+import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
 import { encodePacked, isAddress, decodeEventLog, encodeFunctionData, erc721Abi } from "viem";
@@ -72,42 +73,42 @@ export default function AgentsPage() {
   const identityRegistry = (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || "").trim() as `0x${string}` | "";
   const chainId = (process.env.NEXT_PUBLIC_CHAIN_ID || "").toString();
 
-  const [selectedNft, setSelectedNft] = useState("");
-  const [validFrom, setValidFrom] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [valueLimit, setValueLimit] = useState("0");
-  const [budget, setBudget] = useState("0");
-  const [selectedActions, setSelectedActions] = useState(["amm"]);
-  const [ammMaxReserve, setAmmMaxReserve] = useState("0");
-  const [ammTtlSeconds, setAmmTtlSeconds] = useState("0");
-  const [isInstallingAmm, setIsInstallingAmm] = useState(false);
+  const [selectedNft, setSelectedNft] = useState<any>("");
+  const [validFrom, setValidFrom] = useState<any>("");
+  const [validUntil, setValidUntil] = useState<any>("");
+  const [valueLimit, setValueLimit] = useState<any>("0");
+  const [budget, setBudget] = useState<any>("0");
+  const [selectedActions, setSelectedActions] = useState<any>(["amm"]);
+  const [ammMaxReserve, setAmmMaxReserve] = useState<any>("0");
+  const [ammTtlSeconds, setAmmTtlSeconds] = useState<any>("0");
+  const [isInstallingAmm, setIsInstallingAmm] = useState<boolean>(false);
   const selectors = useMemo(() => {
     const set = new Set<string>();
-    selectedActions.forEach((id) => {
-      const preset = ACTION_PRESETS.find((p) => p.id === id);
-      preset?.selectors?.forEach((selector) => set.add(selector));
+    selectedActions.forEach((id: any) => {
+      const preset = ACTION_PRESETS.find((p: any) => p.id === id);
+      preset?.selectors?.forEach((selector: any) => set.add(selector));
     });
     return Array.from(set);
   }, [selectedActions]);
-  const [entityId, setEntityId] = useState("7");
-  const [sessionKey, setSessionKey] = useState("");
-  const [allowedTargetsInput, setAllowedTargetsInput] = useState("");
-  const [trackedKeyInput, setTrackedKeyInput] = useState("");
-  const [trackedKeys, setTrackedKeys] = useState([] as string[]);
-  const [trackedPolicies, setTrackedPolicies] = useState({} as Record<string, any>);
+  const [entityId, setEntityId] = useState<any>("7");
+  const [sessionKey, setSessionKey] = useState<any>("");
+  const [allowedTargetsInput, setAllowedTargetsInput] = useState<any>("");
+  const [trackedKeyInput, setTrackedKeyInput] = useState<any>("");
+  const [trackedKeys, setTrackedKeys] = useState<any>([] as string[]);
+  const [trackedPolicies, setTrackedPolicies] = useState<any>({} as Record<string, any>);
   const [tbaAddress, setTbaAddress] = useState<`0x${string}` | "">("");
-  const [tbaDeployed, setTbaDeployed] = useState(false);
+  const [tbaDeployed, setTbaDeployed] = useState<boolean>(false);
   const [agentId, setAgentId] = useState<bigint | null>(null);
-  const [isInstalling, setIsInstalling] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
+  const [isInstalling, setIsInstalling] = useState<boolean>(false);
+  const [isDeploying, setIsDeploying] = useState<boolean>(false);
   const [sessionModuleInstalled, setSessionModuleInstalled] = useState<boolean | null>(null);
   const sessionModuleKey = useMemo(() => {
     if (!tbaAddress || !sessionKeyModule) return "";
     return ["equalfi.sessionModule", chainId || "0", tbaAddress, entityId || "0", sessionKeyModule].join(":");
   }, [chainId, tbaAddress, entityId, sessionKeyModule]);
-  const [isCreatingKey, setIsCreatingKey] = useState(false);
-  const [isRevoking, setIsRevoking] = useState("");
-  const [isRegisteringAgent, setIsRegisteringAgent] = useState(false);
+  const [isCreatingKey, setIsCreatingKey] = useState<boolean>(false);
+  const [isRevoking, setIsRevoking] = useState<any>("");
+  const [isRegisteringAgent, setIsRegisteringAgent] = useState<boolean>(false);
 
   const trackedStorageKey = useMemo(() => {
     const base = ["equalfi.sessionKeys", chainId || "0", tbaAddress || "none", entityId || "0"].join(":");
@@ -130,7 +131,7 @@ export default function AgentsPage() {
       }
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        setTrackedKeys(parsed.filter((item) => typeof item === "string"));
+        setTrackedKeys(parsed.filter((item: any) => typeof item === "string"));
       }
     } catch (err) {
       console.error("Failed to load tracked keys", err);
@@ -180,7 +181,7 @@ export default function AgentsPage() {
         if (!cancelled) {
           setTbaAddress(addr);
           setTbaDeployed(Boolean(deployed));
-          setAgentId(registeredAgentId && registeredAgentId > 0n ? registeredAgentId : null);
+          setAgentId(registeredAgentId && registeredAgentId > BigInt(0) ? registeredAgentId : null);
         }
       } catch (err) {
         console.error("Failed to load TBA", err);
@@ -221,7 +222,7 @@ export default function AgentsPage() {
           return;
         }
         const validationConfig = packValidationConfig(sessionKeyModule, entity);
-        const installed = await publicClient.readContract({
+        const installed = await publicClient!.readContract({
           address: tbaAddress,
           abi: erc6900AccountAbi,
           functionName: "isValidationInstalled",
@@ -253,7 +254,7 @@ export default function AgentsPage() {
       const entity = Number(entityId || 0);
       if (!Number.isFinite(entity)) return;
       const results = await Promise.allSettled(
-        trackedKeys.map((key) =>
+        trackedKeys.map((key: any) =>
           publicClient.readContract({
             address: sessionKeyModule,
             abi: sessionKeyValidationModuleAbi,
@@ -264,7 +265,7 @@ export default function AgentsPage() {
       );
       if (cancelled) return;
       const next: Record<string, any> = {};
-      results.forEach((result, idx) => {
+      results.forEach((result: any, idx: any) => {
         const key = trackedKeys[idx];
         if (result.status !== "fulfilled") {
           next[key] = { error: result.reason };
@@ -288,7 +289,7 @@ export default function AgentsPage() {
       setTrackedPolicies(next);
     };
 
-    loadPolicies().catch((err) => {
+    loadPolicies().catch((err: any) => {
       console.error("Failed to load session key policies", err);
     });
 
@@ -299,7 +300,7 @@ export default function AgentsPage() {
 
   const positionOptions = useMemo(() => {
     const byId = new Map();
-    (nfts || []).forEach((nft: any) => {
+    (nfts || []).forEach((nft: PositionNFT) => {
       if (!nft?.tokenId) return;
       const entry = byId.get(nft.tokenId) || {
         tokenId: nft.tokenId,
@@ -322,7 +323,7 @@ export default function AgentsPage() {
       validUntil: validUntil || "+1h",
       valueLimit: valueLimit ? `${valueLimit} USDC` : "—",
       budget: budget ? `${budget} USDC` : "—",
-      permissions: selectors.map((selector) => ({
+      permissions: selectors.map((selector: any) => ({
         target: allowedTargetsInput || diamondAddress || "0xEqualFiDiamond",
         selectors: [selector],
       })),
@@ -422,9 +423,9 @@ export default function AgentsPage() {
         console.warn("Failed to refresh TBA state", refreshErr);
       }
       addToast({ title: "TBA deployed", type: "success" });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      addToast({ title: "Deploy failed", description: err?.message || "Transaction reverted", type: "error" });
+      addToast({ title: "Deploy failed", description: (err as any)?.message || "Transaction reverted", type: "error" });
     } finally {
       setIsDeploying(false);
     }
@@ -465,9 +466,9 @@ export default function AgentsPage() {
         }
       } catch {}
       addToast({ title: "Session key module installed", type: "success" });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      addToast({ title: "Install failed", description: err?.message || "Transaction reverted", type: "error" });
+      addToast({ title: "Install failed", description: (err as any)?.message || "Transaction reverted", type: "error" });
     } finally {
       setIsInstalling(false);
     }
@@ -508,11 +509,11 @@ export default function AgentsPage() {
 
       const maxReserve = parseUint(ammMaxReserve);
       const ttlSeconds = parseUint(ammTtlSeconds);
-      const ttlNumber = ttlSeconds > 0n ? Number(ttlSeconds) : 0;
+      const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
 
       // 1) Install AMM execution module on the TBA (if not already installed)
       try {
-        const manifest = await publicClient.readContract({
+        const manifest = await publicClient!.readContract({
           address: ammSkillModule,
           abi: positionAgentAmmSkillModuleAbi,
           functionName: "executionManifest",
@@ -525,7 +526,7 @@ export default function AgentsPage() {
           args: [ammSkillModule, manifest, "0x"],
         });
         addToast({ title: "Installing AMM skill module", type: "pending" });
-        await publicClient.waitForTransactionReceipt({ hash: installTx });
+        await publicClient!.waitForTransactionReceipt({ hash: installTx });
       } catch (err) {
         // ignore if already installed
         console.warn("AMM module install skipped", err);
@@ -540,9 +541,9 @@ export default function AgentsPage() {
         maxDuration: ttlNumber > 0 ? ttlNumber : 0,
         minFeeBps: 0,
         maxFeeBps: 0,
-        minReserveA: 0n,
+        minReserveA: BigInt(0),
         maxReserveA: maxReserve,
-        minReserveB: 0n,
+        minReserveB: BigInt(0),
         maxReserveB: maxReserve,
       };
 
@@ -553,7 +554,7 @@ export default function AgentsPage() {
         args: [diamondAddress],
       });
       addToast({ title: "Configuring AMM skill", type: "pending" });
-      await publicClient.waitForTransactionReceipt({ hash: setDiamondTx });
+      await publicClient!.waitForTransactionReceipt({ hash: setDiamondTx });
 
       const setPolicyTx = await writeContractAsync({
         address: tbaAddress,
@@ -561,11 +562,11 @@ export default function AgentsPage() {
         functionName: "setAuctionPolicy",
         args: [policy],
       });
-      await publicClient.waitForTransactionReceipt({ hash: setPolicyTx });
+      await publicClient!.waitForTransactionReceipt({ hash: setPolicyTx });
 
       // 3) Set session key policy for AMM module selectors
       const now = Math.floor(Date.now() / 1000);
-      const validUntilValue = ttlNumber > 0 ? BigInt(now + ttlNumber) : 0n;
+      const validUntilValue = ttlNumber > 0 ? BigInt(now + ttlNumber) : BigInt(0);
       const txHash = await writeContractAsync({
         address: sessionKeyModule,
         abi: sessionKeyValidationModuleAbi,
@@ -576,20 +577,20 @@ export default function AgentsPage() {
           sessionKey,
           0,
           validUntilValue,
-          0n,
-          0n,
+          BigInt(0),
+          BigInt(0),
           [],
           AMM_ACTION_SELECTORS as `0x${string}`[],
           [],
         ],
       });
       addToast({ title: "Installing AMM session policy", type: "pending" });
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      await publicClient!.waitForTransactionReceipt({ hash: txHash });
 
       addToast({ title: "AMM skill template applied", type: "success" });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      addToast({ title: "AMM template failed", description: err?.message || "Transaction reverted", type: "error" });
+      addToast({ title: "AMM template failed", description: (err as any)?.message || "Transaction reverted", type: "error" });
     } finally {
       setIsInstallingAmm(false);
     }
@@ -622,15 +623,15 @@ export default function AgentsPage() {
 
       const allowedTargets = allowedTargetsInput
         .split(",")
-        .map((entry) => entry.trim())
+        .map((entry: any) => entry.trim())
         .filter(Boolean);
 
-      const requiresTargets = selectors.some((selector) => EXECUTE_SELECTORS.includes(selector.toLowerCase()));
+      const requiresTargets = selectors.some((selector: any) => EXECUTE_SELECTORS.includes(selector.toLowerCase()));
       if (requiresTargets && allowedTargets.length === 0) {
         throw new Error("Provide at least one allowed target for execute calls");
       }
 
-      const invalidTarget = allowedTargets.find((t) => !isAddress(t));
+      const invalidTarget = allowedTargets.find((t: any) => !isAddress(t));
       if (invalidTarget) {
         throw new Error(`Invalid target address: ${invalidTarget}`);
       }
@@ -638,7 +639,7 @@ export default function AgentsPage() {
       if (selectors.length === 0) {
         throw new Error("Select at least one action");
       }
-      const invalidSelector = selectors.find((sel) => !/^0x[0-9a-fA-F]{8}$/.test(sel));
+      const invalidSelector = selectors.find((sel: any) => !/^0x[0-9a-fA-F]{8}$/.test(sel));
       if (invalidSelector) {
         throw new Error(`Invalid selector: ${invalidSelector}`);
       }
@@ -673,11 +674,11 @@ export default function AgentsPage() {
       addToast({ title: "Session key policy submitted", type: "pending" });
       await publicClient?.waitForTransactionReceipt({ hash: txHash });
       addToast({ title: "Session key policy set", type: "success" });
-      setTrackedKeys((prev) => (prev.includes(sessionKey) ? prev : [...prev, sessionKey]));
+      setTrackedKeys((prev: any) => (prev.includes(sessionKey) ? prev : [...prev, sessionKey]));
       setTrackedKeyInput("");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      addToast({ title: "Session key failed", description: err?.message || "Transaction reverted", type: "error" });
+      addToast({ title: "Session key failed", description: (err as any)?.message || "Transaction reverted", type: "error" });
     } finally {
       setIsCreatingKey(false);
     }
@@ -688,7 +689,7 @@ export default function AgentsPage() {
       addToast({ title: "Enter a valid address", type: "error" });
       return;
     }
-    setTrackedKeys((prev) => (prev.includes(trackedKeyInput) ? prev : [...prev, trackedKeyInput]));
+    setTrackedKeys((prev: any) => (prev.includes(trackedKeyInput) ? prev : [...prev, trackedKeyInput]));
     setTrackedKeyInput("");
   };
 
@@ -710,9 +711,9 @@ export default function AgentsPage() {
       addToast({ title: "Revoking session key", type: "pending" });
       await publicClient?.waitForTransactionReceipt({ hash: txHash });
       addToast({ title: "Session key revoked", type: "success" });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      addToast({ title: "Revoke failed", description: err?.message || "Transaction reverted", type: "error" });
+      addToast({ title: "Revoke failed", description: (err as any)?.message || "Transaction reverted", type: "error" });
     } finally {
       setIsRevoking("");
     }
@@ -792,12 +793,12 @@ export default function AgentsPage() {
       };
 
       let agentId = await runRegister();
-      if (agentId === 0n) {
+      if (agentId === BigInt(0)) {
         // ERC-8004 registry starts at 0; retry to get a non-zero id for EqualFi
         agentId = await runRegister();
       }
 
-      if (agentId === null || agentId === 0n) {
+      if (agentId === null || agentId === BigInt(0)) {
         throw new Error("Registry returned agentId 0; retry or reset registry");
       }
 
@@ -812,9 +813,9 @@ export default function AgentsPage() {
       await publicClient?.waitForTransactionReceipt({ hash: recordTx });
       setAgentId(agentId);
       addToast({ title: "Agent registered", type: "success" });
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      addToast({ title: "Register failed", description: err?.message || "Transaction reverted", type: "error" });
+      addToast({ title: "Register failed", description: (err as any)?.message || "Transaction reverted", type: "error" });
     } finally {
       setIsRegisteringAgent(false);
     }
@@ -828,9 +829,9 @@ export default function AgentsPage() {
             <SectionHeader title="AGENT SETUP" subtitle="Position NFT binding" />
             <div className="mt-6 space-y-4">
               <Field label="Position NFT">
-                <Select value={selectedNft} onChange={(e) => setSelectedNft(e.target.value)}>
+                <Select value={selectedNft} onChange={(e: any) => setSelectedNft(e.target.value)}>
                   <option value="">Select Position</option>
-                  {positionOptions.map((entry) => (
+                  {positionOptions.map((entry: any) => (
                     <option key={entry.tokenId} value={String(entry.tokenId)}>
                       #{entry.tokenId} · {entry.poolCount || 0} pools
                     </option>
@@ -856,7 +857,7 @@ export default function AgentsPage() {
                         role="button"
                         tabIndex={0}
                         aria-label="Copy TBA address"
-                        onKeyDown={(e) => {
+                        onKeyDown={(e: any) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             handleCopy(tbaAddress);
@@ -908,7 +909,7 @@ export default function AgentsPage() {
                 </div>
               </div>
               <Field label="Validation Entity ID">
-                <Input value={entityId} onChange={(e) => setEntityId(e.target.value)} />
+                <Input value={entityId} onChange={(e: any) => setEntityId(e.target.value)} />
               </Field>
               <ActionButton disabled={isInstalling || sessionModuleInstalled === true} onClick={handleInstallSessionKey}>
                 {sessionModuleInstalled === true
@@ -922,14 +923,14 @@ export default function AgentsPage() {
                 <Input
                   placeholder="0x..."
                   value={sessionKey}
-                  onChange={(e) => setSessionKey(e.target.value)}
+                  onChange={(e: any) => setSessionKey(e.target.value)}
                 />
               </Field>
               <Field label="Allowed Targets (comma-separated)">
                 <Input
                   placeholder={diamondAddress || "0x..."}
                   value={allowedTargetsInput}
-                  onChange={(e) => setAllowedTargetsInput(e.target.value)}
+                  onChange={(e: any) => setAllowedTargetsInput(e.target.value)}
                 />
               </Field>
 
@@ -944,10 +945,10 @@ export default function AgentsPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="AMM Max Reserve (raw units)">
-                  <Input value={ammMaxReserve} onChange={(e) => setAmmMaxReserve(e.target.value)} />
+                  <Input value={ammMaxReserve} onChange={(e: any) => setAmmMaxReserve(e.target.value)} />
                 </Field>
                 <Field label="Session TTL (seconds)">
-                  <Input value={ammTtlSeconds} onChange={(e) => setAmmTtlSeconds(e.target.value)} />
+                  <Input value={ammTtlSeconds} onChange={(e: any) => setAmmTtlSeconds(e.target.value)} />
                 </Field>
               </div>
               <ActionButton disabled={isInstallingAmm} onClick={handleApplyAmmTemplate}>
@@ -957,37 +958,37 @@ export default function AgentsPage() {
                 <Input
                   placeholder="0"
                   value={validFrom}
-                  onChange={(e) => setValidFrom(e.target.value)}
+                  onChange={(e: any) => setValidFrom(e.target.value)}
                 />
               </Field>
               <Field label="Valid Until (unix seconds)">
                 <Input
                   placeholder="0"
                   value={validUntil}
-                  onChange={(e) => setValidUntil(e.target.value)}
+                  onChange={(e: any) => setValidUntil(e.target.value)}
                 />
               </Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Max Value Per Call (wei)">
-                  <Input value={valueLimit} onChange={(e) => setValueLimit(e.target.value)} />
+                  <Input value={valueLimit} onChange={(e: any) => setValueLimit(e.target.value)} />
                 </Field>
                 <Field label="Cumulative Value Limit (wei)">
-                  <Input value={budget} onChange={(e) => setBudget(e.target.value)} />
+                  <Input value={budget} onChange={(e: any) => setBudget(e.target.value)} />
                 </Field>
               </div>
               <Field label="Allowed Actions">
                 <div className="grid gap-3">
-                  {ACTION_PRESETS.map((preset) => (
+                  {ACTION_PRESETS.map((preset: any) => (
                     <label key={preset.id} className="flex items-start gap-3 text-xs text-gray-400">
                       <input
                         type="checkbox"
                         className="mt-0.5"
                         checked={selectedActions.includes(preset.id)}
-                        onChange={(e) => {
-                          setSelectedActions((prev) =>
+                        onChange={(e: any) => {
+                          setSelectedActions((prev: any) =>
                             e.target.checked
                               ? [...prev, preset.id]
-                              : prev.filter((item) => item !== preset.id),
+                              : prev.filter((item: any) => item !== preset.id),
                           );
                         }}
                       />
@@ -1022,7 +1023,7 @@ export default function AgentsPage() {
             <Input
               placeholder="Track a session key address"
               value={trackedKeyInput}
-              onChange={(e) => setTrackedKeyInput(e.target.value)}
+              onChange={(e: any) => setTrackedKeyInput(e.target.value)}
             />
             <ActionButton onClick={handleTrackKey}>Track</ActionButton>
           </div>
@@ -1032,7 +1033,7 @@ export default function AgentsPage() {
                 No tracked session keys yet.
               </div>
             )}
-            {trackedKeys.map((key) => {
+            {trackedKeys.map((key: any) => {
               const policy = trackedPolicies[key];
               const now = Math.floor(Date.now() / 1000);
               const isActive = policy?.active && (!policy?.validUntil || Number(policy.validUntil) === 0 || Number(policy.validUntil) >= now);

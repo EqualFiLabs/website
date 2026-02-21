@@ -139,7 +139,7 @@ function TokenSelector({
   )
 
   const yourTokens = useMemo(
-    () => filteredTokens.filter((token) => token.balance && token.balance > 0n),
+    () => filteredTokens.filter((token) => token.balance && token.balance > BigInt(0)),
     [filteredTokens],
   )
   const nativeToken = filteredTokens.find(

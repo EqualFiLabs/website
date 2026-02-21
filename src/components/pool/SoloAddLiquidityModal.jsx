@@ -42,35 +42,35 @@ function SoloAddLiquidityModal({ isOpen, auction, onClose, onSuccess }) {
     const poolB = poolsConfig.pools.find((pool) => Number(pool.pid) === Number(auction.poolIdB))
     const decimalsA = poolA?.decimals ?? auction.decimalsA ?? 18
     const decimalsB = poolB?.decimals ?? auction.decimalsB ?? 18
-    let reserveARaw = auction.reserveARaw ?? 0n
-    let reserveBRaw = auction.reserveBRaw ?? 0n
-    if (reserveARaw <= 0n && auction.displayReserveA != null) {
+    let reserveARaw = auction.reserveARaw ?? BigInt(0)
+    let reserveBRaw = auction.reserveBRaw ?? BigInt(0)
+    if (reserveARaw <= BigInt(0) && auction.displayReserveA != null) {
       try {
         reserveARaw = parseUnits(String(auction.displayReserveA), decimalsA)
       } catch {
-        reserveARaw = 0n
+        reserveARaw = BigInt(0)
       }
     }
-    if (reserveBRaw <= 0n && auction.displayReserveB != null) {
+    if (reserveBRaw <= BigInt(0) && auction.displayReserveB != null) {
       try {
         reserveBRaw = parseUnits(String(auction.displayReserveB), decimalsB)
       } catch {
-        reserveBRaw = 0n
+        reserveBRaw = BigInt(0)
       }
     }
-    if (reserveARaw <= 0n || reserveBRaw <= 0n) return null
+    if (reserveARaw <= BigInt(0) || reserveBRaw <= BigInt(0)) return null
     let amountARaw
     try {
       amountARaw = parseUnits(amountA, decimalsA)
     } catch {
       return null
     }
-    if (amountARaw <= 0n) return null
+    if (amountARaw <= BigInt(0)) return null
     const amountBRaw = (amountARaw * reserveBRaw) / reserveARaw
     return {
       amountARaw,
       amountBRaw,
-      usingFallback: reserveARaw === 0n || reserveBRaw === 0n,
+      usingFallback: reserveARaw === BigInt(0) || reserveBRaw === BigInt(0),
       decimalsB,
     }
   }, [auction, amountA, poolsConfig])
@@ -93,7 +93,7 @@ function SoloAddLiquidityModal({ isOpen, auction, onClose, onSuccess }) {
       if (!publicClient || !writeContractAsync) throw new Error('Wallet client unavailable')
       if (!isConnected || !address) throw new Error('Connect wallet to add liquidity')
       if (!computed?.amountARaw || !computed?.amountBRaw) throw new Error('Enter an amount')
-      if (computed.amountARaw <= 0n || computed.amountBRaw <= 0n) throw new Error('Enter amounts above zero')
+      if (computed.amountARaw <= BigInt(0) || computed.amountBRaw <= BigInt(0)) throw new Error('Enter amounts above zero')
 
       const poolA = poolsConfig.pools.find((pool) => Number(pool.pid) === Number(auction.poolIdA))
       if (!poolA) throw new Error('Pool config missing for auction')

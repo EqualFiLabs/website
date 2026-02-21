@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export const SEGMENTED_ROUTES = [
-  { to: "/app/swap", label: "Swap" },
-];
+export const SEGMENTED_ROUTES = [];
 
 function SegmentedNav() {
   const pathname = usePathname();

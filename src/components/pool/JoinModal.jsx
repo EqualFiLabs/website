@@ -129,7 +129,7 @@ function JoinModal({ isOpen, auction, onClose }) {
 
       const amountARaw = parseUnits(amountA || '0', poolA.decimals ?? 18)
       const amountBRaw = parseUnits(amountB || '0', poolB.decimals ?? 18)
-      if (amountARaw <= 0n || amountBRaw <= 0n) throw new Error('Enter amounts above zero')
+      if (amountARaw <= BigInt(0) || amountBRaw <= BigInt(0)) throw new Error('Enter amounts above zero')
 
       const diamondAddress =
         (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA.lendingPoolAddress || '').trim()

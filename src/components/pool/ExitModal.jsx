@@ -56,13 +56,13 @@ function ExitModal({ isOpen, auction, participatingPositions, onClose, onConfirm
                             <span>Share:</span>
                             <span className="text-neutral1">{(Number(formatUnits(pos.share, 18))).toFixed(6)}</span>
                         </div>
-                        {(pos.feesA > 0n || pos.feesB > 0n) && (
+                        {(pos.feesA > BigInt(0) || pos.feesB > BigInt(0)) && (
                             <div className="flex justify-between text-accent1">
                                 <span>Unclaimed Fees:</span>
                                 <span>
-                                    {pos.feesA > 0n && `${formatUnits(pos.feesA, auction.decimalsA)} ${auction.tokenA}`}
-                                    {pos.feesA > 0n && pos.feesB > 0n && ' + '}
-                                    {pos.feesB > 0n && `${formatUnits(pos.feesB, auction.decimalsB)} ${auction.tokenB}`}
+                                    {pos.feesA > BigInt(0) && `${formatUnits(pos.feesA, auction.decimalsA)} ${auction.tokenA}`}
+                                    {pos.feesA > BigInt(0) && pos.feesB > BigInt(0) && ' + '}
+                                    {pos.feesB > BigInt(0) && `${formatUnits(pos.feesB, auction.decimalsB)} ${auction.tokenB}`}
                                 </span>
                             </div>
                         )}

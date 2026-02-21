@@ -1,4 +1,5 @@
 "use client";
+import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useState, useMemo, useEffect } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
@@ -36,41 +37,41 @@ function AuctionManagementPage() {
   const poolsConfig = usePoolsConfig()
   const { buildTxUrl } = useExplorerUrl()
 
-  const [view, setView] = useState('list')
-  const [filter, setFilter] = useState('all')
-  const [joinTarget, setJoinTarget] = useState(null)
-  const [soloAddTarget, setSoloAddTarget] = useState(null)
-  const [cancelTarget, setCancelTarget] = useState(null)
-  const [isCancelling, setIsCancelling] = useState(false)
-  const [inactiveIds, setInactiveIds] = useState(() => new Set())
-  const [exitTarget, setExitTarget] = useState(null)
-  const [isExiting, setIsExiting] = useState(false)
+  const [view, setView] = useState<'list' | 'create'>('list')
+  const [filter, setFilter] = useState<'all' | 'solo' | 'community' | 'inactive' | 'mine'>('all')
+  const [joinTarget, setJoinTarget] = useState<Auction | null>(null)
+  const [soloAddTarget, setSoloAddTarget] = useState<Auction | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<Auction | null>(null)
+  const [isCancelling, setIsCancelling] = useState<boolean>(false)
+  const [inactiveIds, setInactiveIds] = useState<Set<string>>(() => new Set())
+  const [exitTarget, setExitTarget] = useState<Auction | null>(null)
+  const [isExiting, setIsExiting] = useState<boolean>(false)
 
   const ownedNftIds = useMemo(
-    () => new Set((nfts || []).map((nft) => String(nft.tokenId))),
+    () => new Set((nfts || []).map((nft: PositionNFT) => String(nft.tokenId))),
     [nfts],
   )
 
   const displayedAuctions = useMemo(() => {
     const now = Date.now()
-    const isInactive = (auction) =>
+    const isInactive = (auction: Auction): boolean =>
       inactiveIds.has(`${auction.type || 'auction'}-${auction.id}`) ||
-      auction.active === false ||
-      auction.finalized === true ||
+      (auction as any).active === false ||
+      (auction as any).finalized === true ||
       auction.endsAt <= now
 
-    if (filter === 'all') return auctions.filter((auction) => !isInactive(auction))
+    if (filter === 'all') return auctions.filter((auction: Auction) => !isInactive(auction))
     if (filter === 'inactive') {
-      return auctions.filter((auction) => isInactive(auction))
+      return auctions.filter((auction: Auction) => isInactive(auction))
     }
     if (!address || !nfts) return []
 
-    return auctions.filter((auction) => {
+    return auctions.filter((auction: Auction) => {
       return ownedNftIds.has(String(auction.makerPositionId)) && !isInactive(auction)
     })
   }, [auctions, nfts, address, filter, inactiveIds, ownedNftIds])
 
-  const handleAdd = (auction) => {
+  const handleAdd = (auction: Auction) => {
     if (auction?.type === 'community') {
       setJoinTarget(auction)
       return
@@ -78,7 +79,7 @@ function AuctionManagementPage() {
     setSoloAddTarget(auction)
   }
 
-  const handleCancel = (auction) => {
+  const handleCancel = (auction: Auction) => {
     setCancelTarget(auction)
   }
 
@@ -90,7 +91,7 @@ function AuctionManagementPage() {
       if (!publicClient || !writeContractAsync) throw new Error('Wallet client unavailable')
       if (!isConnected || !address) throw new Error('Connect wallet to cancel')
 
-      const poolA = poolsConfig.pools.find((pool) => Number(pool.pid) === Number(cancelTarget.poolIdA))
+      const poolA = poolsConfig.pools.find((pool: PoolConfig) => Number(pool.pid) === Number(cancelTarget.poolIdA))
       const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA?.lendingPoolAddress || '').trim()
       if (!diamondAddress) throw new Error('Diamond address missing')
 
@@ -99,7 +100,7 @@ function AuctionManagementPage() {
       const functionName = isCommunity ? 'cancelCommunityAuction' : 'cancelAuction'
 
       const txHash = await writeContractAsync({
-        address: diamondAddress,
+        address: diamondAddress as `0x${string}`,
         abi,
         functionName,
         args: [BigInt(cancelTarget.id)],
@@ -112,14 +113,14 @@ function AuctionManagementPage() {
         link: buildTxUrl(txHash),
       })
 
-      await publicClient.waitForTransactionReceipt({ hash: txHash })
+      await publicClient!.waitForTransactionReceipt({ hash: txHash })
       addToast({
         title: 'Auction cancelled',
         description: `Auction #${cancelTarget.id} stopped`,
         type: 'success',
         link: buildTxUrl(txHash),
       })
-      setInactiveIds((prev) => {
+      setInactiveIds((prev: Set<string>) => {
         const next = new Set(prev)
         next.add(`${cancelTarget.type || 'auction'}-${cancelTarget.id}`)
         return next
@@ -130,7 +131,7 @@ function AuctionManagementPage() {
       console.error(err)
       addToast({
         title: 'Cancel failed',
-        description: err.message || 'Transaction reverted',
+        description: (err as Error).message || 'Transaction reverted',
         type: 'error',
       })
     } finally {
@@ -138,11 +139,11 @@ function AuctionManagementPage() {
     }
   }
 
-  const handleExit = (auction, positions) => {
+  const handleExit = (auction: Auction, positions: ParticipatingPosition[]) => {
     setExitTarget({ ...auction, participatingPositions: positions })
   }
 
-  const confirmExit = async (positionId) => {
+  const confirmExit = async (positionId: string) => {
     if (!exitTarget || !positionId) return
     setIsExiting(true)
 
@@ -150,12 +151,12 @@ function AuctionManagementPage() {
       if (!publicClient || !writeContractAsync) throw new Error('Wallet client unavailable')
       if (!isConnected || !address) throw new Error('Connect wallet to exit')
 
-      const poolA = poolsConfig.pools.find((pool) => Number(pool.pid) === Number(exitTarget.poolIdA))
+      const poolA = poolsConfig.pools.find((pool: PoolConfig) => Number(pool.pid) === Number(exitTarget.poolIdA))
       const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA?.lendingPoolAddress || '').trim()
       if (!diamondAddress) throw new Error('Diamond address missing')
 
       const txHash = await writeContractAsync({
-        address: diamondAddress,
+        address: diamondAddress as `0x${string}`,
         abi: communityAuctionFacetAbi,
         functionName: 'leaveCommunityAuction',
         args: [BigInt(exitTarget.id), BigInt(positionId)],
@@ -168,7 +169,7 @@ function AuctionManagementPage() {
         link: buildTxUrl(txHash),
       })
 
-      await publicClient.waitForTransactionReceipt({ hash: txHash })
+      await publicClient!.waitForTransactionReceipt({ hash: txHash })
       addToast({
         title: 'Exited Auction',
         description: `Left Community Auction #${exitTarget.id}`,
@@ -181,7 +182,7 @@ function AuctionManagementPage() {
       console.error(err)
       addToast({
         title: 'Exit failed',
-        description: err.message || 'Transaction reverted',
+        description: (err as Error).message || 'Transaction reverted',
         type: 'error',
       })
     } finally {
@@ -269,7 +270,7 @@ function AuctionManagementPage() {
                 )}
               </div>
             ) : (
-              displayedAuctions.map((auction) => (
+              displayedAuctions.map((auction: Auction) => (
                 <AuctionCard
                   key={`${auction.type || 'auction'}-${auction.id}`}
                   auction={auction}
@@ -277,7 +278,6 @@ function AuctionManagementPage() {
                   onCancel={handleCancel}
                   onJoin={handleAdd}
                   onAdd={handleAdd}
-                  onCreateSolo={() => setView('create')}
                   onExit={handleExit}
                 />
               ))
@@ -295,7 +295,8 @@ function AuctionManagementPage() {
         <ExitModal
           isOpen={Boolean(exitTarget)}
           auction={exitTarget}
-          isLoading={isExiting}
+          participatingPositions={exitTarget?.participatingPositions}
+          isExiting={isExiting}
           onClose={() => setExitTarget(null)}
           onConfirm={confirmExit}
         />

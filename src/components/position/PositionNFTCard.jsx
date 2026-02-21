@@ -61,10 +61,10 @@ export function PositionNFTCard({
       return Boolean(membership.isMember || membership.hasBalance || membership.hasActiveLoans)
     }
     return (
-      (nft.principalRaw ?? 0n) > 0n ||
-      (nft.totalDebtRaw ?? 0n) > 0n ||
-      (nft.rollingCreditRaw ?? 0n) > 0n ||
-      (nft.accruedYieldRaw ?? 0n) > 0n
+      (nft.principalRaw ?? BigInt(0)) > BigInt(0) ||
+      (nft.totalDebtRaw ?? BigInt(0)) > BigInt(0) ||
+      (nft.rollingCreditRaw ?? BigInt(0)) > BigInt(0) ||
+      (nft.accruedYieldRaw ?? BigInt(0)) > BigInt(0)
     )
   }
 
@@ -76,16 +76,16 @@ export function PositionNFTCard({
           tokenId: nft.tokenId,
           positions: [],
           activeCount: 0,
-          principal: 0n,
-          liabilities: 0n,
+          principal: BigInt(0),
+          liabilities: BigInt(0),
           ticker: nft.ticker,
           decimals: nft.decimals ?? 18,
         }
       }
       grouped[nft.tokenId].positions.push(nft)
       if (isActivePosition(nft)) grouped[nft.tokenId].activeCount += 1
-      grouped[nft.tokenId].principal += nft.principalRaw ?? 0n
-      grouped[nft.tokenId].liabilities += nft.totalDebtRaw ?? 0n
+      grouped[nft.tokenId].principal += nft.principalRaw ?? BigInt(0)
+      grouped[nft.tokenId].liabilities += nft.totalDebtRaw ?? BigInt(0)
     })
     return Object.values(grouped).sort((a, b) => Number(a.tokenId) - Number(b.tokenId))
   }, [nfts])

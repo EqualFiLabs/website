@@ -1,4 +1,5 @@
 "use client";
+import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useWriteContract } from "wagmi";
@@ -22,16 +23,16 @@ export default function SwapPage() {
   const defaultIn = tokens[0] || { symbol: "", address: "", decimals: 18 };
   const defaultOut = tokens[1] || { symbol: "", address: "", decimals: 18 };
 
-  const [swapIn, setSwapIn] = useState(defaultIn);
-  const [swapOut, setSwapOut] = useState(defaultOut);
-  const [hasManualSelection, setHasManualSelection] = useState(false);
-  const [swapAmount, setSwapAmount] = useState("");
-  const [swapMinOut, setSwapMinOut] = useState("");
-  const [hasManualMinOut, setHasManualMinOut] = useState(false);
+  const [swapIn, setSwapIn] = useState<any>(defaultIn);
+  const [swapOut, setSwapOut] = useState<any>(defaultOut);
+  const [hasManualSelection, setHasManualSelection] = useState<boolean>(false);
+  const [swapAmount, setSwapAmount] = useState<any>("");
+  const [swapMinOut, setSwapMinOut] = useState<any>("");
+  const [hasManualMinOut, setHasManualMinOut] = useState<boolean>(false);
   const [auctions, setAuctions] = useState<any[]>([]);
   const [onchainAuctions, setOnchainAuctions] = useState<any[]>([]);
   const [selectedAuction, setSelectedAuction] = useState<string>("");
-  const [autoRoute, setAutoRoute] = useState(true);
+  const [autoRoute, setAutoRoute] = useState<boolean>(true);
   const [expectedOut, setExpectedOut] = useState<string>("");
 
   const missingContracts = useMemo(() => {
@@ -48,8 +49,8 @@ export default function SwapPage() {
       const chainParam = activeChainId ? `?chainId=${activeChainId}` : "";
       const cacheBuster = `${chainParam ? '&' : '?'}t=${Date.now()}`;
       fetch(`/api/auctions${chainParam}${cacheBuster}`)
-        .then((res) => res.json())
-        .then((data) => {
+        .then((res: Response) => res.json())
+        .then((data: any) => {
           if (!cancelled) {
             console.log('[DEBUG] Auctions fetched:', data.auctions?.length, data.auctions);
             setAuctions(data.auctions || []);
@@ -77,20 +78,20 @@ export default function SwapPage() {
         return;
       }
       try {
-        const [ids] = await publicClient.readContract({
+        const [ids] = (await publicClient!.readContract({
           address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
           abi: derivativeViewFacetAbi,
           functionName: "getAuctionsByPair",
-          args: [swapIn.address, swapOut.address, 0n, 20n],
-        });
+          args: [swapIn.address, swapOut.address, BigInt(0), BigInt(20)],
+        })) as [bigint[]];
         const uniqueIds = Array.from(new Set((ids || []).map((id: bigint) => Number(id))))
         if (!uniqueIds.length) {
           setOnchainAuctions([]);
           return;
         }
         const auctions = await Promise.all(
-          uniqueIds.map(async (id) => {
-            const a = await publicClient.readContract({
+          uniqueIds.map(async (id: number) => {
+            const a: any = await publicClient!.readContract({
               address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
               abi: derivativeViewFacetAbi,
               functionName: "getAmmAuction",
@@ -134,8 +135,8 @@ export default function SwapPage() {
     const first = auctions[0];
     const tokenA = (first.token_a || '').toLowerCase();
     const tokenB = (first.token_b || '').toLowerCase();
-    const matchA = tokens.find((t) => t.address.toLowerCase() === tokenA);
-    const matchB = tokens.find((t) => t.address.toLowerCase() === tokenB);
+    const matchA = tokens.find((t: TokenInfo) => t.address.toLowerCase() === tokenA);
+    const matchB = tokens.find((t: TokenInfo) => t.address.toLowerCase() === tokenB);
     if (matchA && matchB) {
       setSwapIn(matchA);
       setSwapOut(matchB);
@@ -166,7 +167,7 @@ export default function SwapPage() {
       sampleAuction: source[0],
     });
     
-    const result = source.filter((a) => {
+    const result = source.filter((a: any) => {
       const aIn = a.token_a?.toLowerCase();
       const aOut = a.token_b?.toLowerCase();
       const isActive = a.active !== false && a.finalized !== true;
@@ -208,7 +209,7 @@ export default function SwapPage() {
       }
       const pick = autoRoute
         ? eligibleAuctions[0]
-        : eligibleAuctions.find((m) => String(m.id) === selectedAuction) || eligibleAuctions[0];
+        : eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
 
       console.log('[DEBUG] Selected auction:', {
         id: pick.id,
@@ -221,9 +222,9 @@ export default function SwapPage() {
 
       try {
         const amountInRaw = parseUnits(swapAmount, swapIn.decimals ?? 18);
-        const slippageBps = 50n;
-        let amountOutRaw = 0n;
-        let minOutRaw = 0n;
+        const slippageBps = BigInt(50);
+        let amountOutRaw = BigInt(0);
+        let minOutRaw = BigInt(0);
 
         console.log('[DEBUG] Preview params:', {
           tokenIn: swapIn.address,
@@ -233,23 +234,23 @@ export default function SwapPage() {
         });
 
         if (pick.type === "community") {
-          const preview = await publicClient.readContract({
+          const preview = await publicClient!.readContract({
             address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
             abi: communityAuctionAbi,
             functionName: "previewCommunitySwap",
             args: [BigInt(pick.id), swapIn.address, amountInRaw],
           });
-          amountOutRaw = preview.amountOut ?? preview[0] ?? 0n;
-          minOutRaw = (amountOutRaw * (10_000n - slippageBps)) / 10_000n;
+          amountOutRaw = preview.amountOut ?? preview[0] ?? BigInt(0);
+          minOutRaw = (amountOutRaw * (BigInt(10000) - slippageBps)) / BigInt(10000);
         } else {
-          const preview = await publicClient.readContract({
+          const preview = await publicClient!.readContract({
             address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
             abi: ammAuctionAbi,
             functionName: "previewSwap",
             args: [BigInt(pick.id), swapIn.address, amountInRaw],
           });
-          amountOutRaw = preview.amountOut ?? preview[0] ?? 0n;
-          minOutRaw = (amountOutRaw * (10_000n - slippageBps)) / 10_000n;
+          amountOutRaw = preview.amountOut ?? preview[0] ?? BigInt(0);
+          minOutRaw = (amountOutRaw * (BigInt(10000) - slippageBps)) / BigInt(10000);
         }
 
         const outDisplay = formatUnits(amountOutRaw, swapOut.decimals ?? 18);
@@ -302,7 +303,7 @@ export default function SwapPage() {
                     inputMode="decimal"
                     placeholder="0"
                     value={swapAmount}
-                    onChange={(e) => setSwapAmount(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSwapAmount(e.target.value)}
                     className="flex-1 min-w-0 bg-transparent text-3xl font-semibold text-neutral1 outline-none placeholder:text-neutral3"
                   />
                   <div className="relative">
@@ -317,13 +318,13 @@ export default function SwapPage() {
                     </div>
                     <select
                       value={swapIn.symbol}
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         setHasManualSelection(true);
-                        setSwapIn(tokens.find((t) => t.symbol === e.target.value) || tokens[0]);
+                        setSwapIn(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[0]);
                       }}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     >
-                      {tokens.map((token) => (
+                      {tokens.map((token: TokenInfo) => (
                         <option key={token.symbol} value={token.symbol}>
                           {token.symbol}
                         </option>
@@ -360,7 +361,7 @@ export default function SwapPage() {
                     inputMode="decimal"
                     placeholder="0"
                     value={swapMinOut}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       setHasManualMinOut(true);
                       setSwapMinOut(e.target.value);
                     }}
@@ -378,13 +379,13 @@ export default function SwapPage() {
                     </div>
                     <select
                       value={swapOut.symbol}
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         setHasManualSelection(true);
-                        setSwapOut(tokens.find((t) => t.symbol === e.target.value) || tokens[1]);
+                        setSwapOut(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[1]);
                       }}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     >
-                      {tokens.map((token) => (
+                      {tokens.map((token: TokenInfo) => (
                         <option key={token.symbol} value={token.symbol}>
                           {token.symbol}
                         </option>
@@ -407,7 +408,7 @@ export default function SwapPage() {
                   <input
                     type="checkbox"
                     checked={autoRoute}
-                    onChange={(e) => setAutoRoute(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoRoute(e.target.checked)}
                     className="h-4 w-4 accent-accent1"
                   />
                   Auto route
@@ -418,10 +419,10 @@ export default function SwapPage() {
                 <div className="mt-spacing10">
                   <select
                     value={selectedAuction}
-                    onChange={(e) => setSelectedAuction(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAuction(e.target.value)}
                     className="w-full rounded-xl border border-surface3 bg-surface1 px-spacing12 py-spacing8 text-sm text-neutral1 focus:outline-none focus:ring-2 focus:ring-accent1"
                   >
-                    {eligibleAuctions.map((auction) => (
+                    {eligibleAuctions.map((auction: Auction) => (
                       <option key={`${auction.type}-${auction.id}`} value={auction.id}>
                         Auction {auction.id} — Fee {auction.fee_bps}
                       </option>
@@ -429,7 +430,7 @@ export default function SwapPage() {
                   </select>
 
                   <div className="mt-spacing8 space-y-spacing6 text-xs text-neutral2">
-                    {eligibleAuctions.map((auction) => (
+                    {eligibleAuctions.map((auction: Auction) => (
                       <div
                         key={`${auction.type}-${auction.id}-row`}
                         className={[
@@ -460,7 +461,7 @@ export default function SwapPage() {
                 if (!eligibleAuctions.length) return;
                 const pick = autoRoute
                   ? eligibleAuctions[0]
-                  : eligibleAuctions.find((m) => String(m.id) === selectedAuction) || eligibleAuctions[0];
+                  : eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
                 const isCommunity = pick.type === "community";
                 writeContract({
                   address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,

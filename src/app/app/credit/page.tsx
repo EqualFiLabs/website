@@ -1,4 +1,5 @@
 "use client";
+import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from 'react'
 import { erc20Abi, formatUnits, parseUnits, maxUint256 } from 'viem'
@@ -12,7 +13,7 @@ import { AppShell } from '../../app-shell'
 
 const FIXED_TERMS = [30, 90, 180, 365]
 
-const formatDisplay = (value, maxFraction = 4) => {
+const formatDisplay = (value: any, maxFraction = 4) => {
   if (!Number.isFinite(value)) return '—'
   return value.toLocaleString(undefined, {
     maximumFractionDigits: maxFraction,
@@ -27,17 +28,17 @@ function CreditPage() {
   const { writeContractAsync } = useWriteContract()
   const { nfts, loading, error, poolMeta, refetch } = usePositionNFTs()
 
-  const [selectedPositionKey, setSelectedPositionKey] = useState('')
-  const [rollingBorrowAmount, setRollingBorrowAmount] = useState('')
-  const [rollingPaymentAmount, setRollingPaymentAmount] = useState('')
-  const [fixedBorrowAmount, setFixedBorrowAmount] = useState('')
-  const [fixedRepayAmount, setFixedRepayAmount] = useState('')
-  const [fixedTermIndex, setFixedTermIndex] = useState(0)
-  const [selectedFixedLoanId, setSelectedFixedLoanId] = useState('')
-  const [pendingAction, setPendingAction] = useState(null)
+  const [selectedPositionKey, setSelectedPositionKey] = useState<string>('')
+  const [rollingBorrowAmount, setRollingBorrowAmount] = useState<string>('')
+  const [rollingPaymentAmount, setRollingPaymentAmount] = useState<string>('')
+  const [fixedBorrowAmount, setFixedBorrowAmount] = useState<string>('')
+  const [fixedRepayAmount, setFixedRepayAmount] = useState<string>('')
+  const [fixedTermIndex, setFixedTermIndex] = useState<number>(0)
+  const [selectedFixedLoanId, setSelectedFixedLoanId] = useState<string>('')
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
 
-  const sortedPositions = useMemo(() => {
-    return [...(nfts ?? [])].sort((a, b) => {
+  const sortedPositions: any[] = useMemo(() => {
+    return [...(nfts ?? [])].sort((a: any, b: any) => {
       const tokenDiff = Number(a.tokenId) - Number(b.tokenId)
       if (tokenDiff !== 0) return tokenDiff
       return a.poolName.localeCompare(b.poolName)
@@ -51,12 +52,12 @@ function CreditPage() {
   }, [sortedPositions, selectedPositionKey])
 
   const selectedNFT = useMemo(
-    () => sortedPositions.find((nft) => nft.positionKey === selectedPositionKey) || null,
+    () => sortedPositions.find((nft: PositionNFT) => nft.positionKey === selectedPositionKey) || null,
     [sortedPositions, selectedPositionKey],
   )
 
   const fixedLoanOptions = useMemo(
-    () => selectedNFT?.fixedLoanIds?.map((id) => Number(id)) ?? [],
+    () => selectedNFT?.fixedLoanIds?.map((id: any) => Number(id)) ?? [],
     [selectedNFT],
   )
 
@@ -68,24 +69,24 @@ function CreditPage() {
     }
   }, [fixedLoanOptions])
 
-  const resolvePoolDetails = (poolName) => poolMeta[poolName] ?? {}
+  const resolvePoolDetails = (poolName: string) => poolMeta[poolName] ?? {} as Record<string, any>
 
-  const poolDetails = selectedNFT ? resolvePoolDetails(selectedNFT.poolName) : {}
+  const poolDetails: Record<string, any> = selectedNFT ? resolvePoolDetails(selectedNFT.poolName) : {}
   const decimals = poolDetails.decimals ?? 18
 
   const principalValue = useMemo(() => {
     if (!selectedNFT) return 0
-    return Number(formatUnits(selectedNFT.principalRaw ?? 0n, decimals))
+    return Number(formatUnits(selectedNFT.principalRaw ?? BigInt(0), decimals))
   }, [selectedNFT, decimals])
 
   const totalDebtValue = useMemo(() => {
     if (!selectedNFT) return 0
-    return Number(formatUnits(selectedNFT.totalDebtRaw ?? 0n, decimals))
+    return Number(formatUnits(selectedNFT.totalDebtRaw ?? BigInt(0), decimals))
   }, [selectedNFT, decimals])
 
   const rollingBalanceValue = useMemo(() => {
     if (!selectedNFT) return 0
-    return Number(formatUnits(selectedNFT.rollingCreditRaw ?? 0n, decimals))
+    return Number(formatUnits(selectedNFT.rollingCreditRaw ?? BigInt(0), decimals))
   }, [selectedNFT, decimals])
 
   const fixedDebtValue = Math.max(totalDebtValue - rollingBalanceValue, 0)
@@ -108,15 +109,15 @@ function CreditPage() {
     }
   }
 
-  const handleActionError = (title, err) => {
+  const handleActionError = (title: any, err: any) => {
     addToast({
       title,
-      description: err?.message || 'Transaction failed',
+      description: (err as any)?.message || 'Transaction failed',
       type: 'error',
     })
   }
 
-  const handleTxToast = (title, hash) => {
+  const handleTxToast = (title: any, hash: any) => {
     addToast({
       title,
       description: `Tx: ${hash}`,
@@ -124,14 +125,14 @@ function CreditPage() {
     })
   }
 
-  const ensureAllowance = async (tokenAddress, spender, amount) => {
+  const ensureAllowance = async (tokenAddress: any, spender: any, amount: any) => {
     if (!tokenAddress) throw new Error('Token address missing')
     if (tokenAddress.toLowerCase() === ZERO_ADDRESS) return
-    const allowance = await publicClient.readContract({
+    const allowance = await publicClient!.readContract({
       address: tokenAddress,
       abi: erc20Abi,
       functionName: 'allowance',
-      args: [address, spender],
+      args: [address!, spender],
     })
     if (allowance < amount) {
       const approveTx = await writeContractAsync({
@@ -140,11 +141,11 @@ function CreditPage() {
         functionName: 'approve',
         args: [spender, maxUint256],
       })
-      await publicClient.waitForTransactionReceipt({ hash: approveTx })
+      await publicClient!.waitForTransactionReceipt({ hash: approveTx })
     }
   }
 
-  const withLoading = async (label, action) => {
+  const withLoading = async (label: any, action: any) => {
     if (pendingAction) return
     setPendingAction(label)
     try {
@@ -164,15 +165,15 @@ function CreditPage() {
         const lendingAddress = (poolDetails.lendingPoolAddress ?? '').trim()
         if (!lendingAddress) throw new Error('Lending pool address missing for selected pool')
         const parsedAmount = parseUnits(rollingBorrowAmount || '0', decimals)
-        if (parsedAmount <= 0n) throw new Error('Enter an amount above zero')
+        if (parsedAmount <= BigInt(0)) throw new Error('Enter an amount above zero')
 
         const tx = await writeContractAsync({
           address: lendingAddress,
           abi: lendingFacetAbi,
           functionName: 'openRollingFromPosition',
-          args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, 0n],
+          args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, BigInt(0)],
         })
-        await publicClient.waitForTransactionReceipt({ hash: tx })
+        await publicClient!.waitForTransactionReceipt({ hash: tx })
         handleTxToast('Rolling credit opened', tx)
         setRollingBorrowAmount('')
         refetch()
@@ -192,15 +193,15 @@ function CreditPage() {
         const lendingAddress = (poolDetails.lendingPoolAddress ?? '').trim()
         if (!lendingAddress) throw new Error('Lending pool address missing for selected pool')
         const parsedAmount = parseUnits(rollingBorrowAmount || '0', decimals)
-        if (parsedAmount <= 0n) throw new Error('Enter an amount above zero')
+        if (parsedAmount <= BigInt(0)) throw new Error('Enter an amount above zero')
 
         const tx = await writeContractAsync({
           address: lendingAddress,
           abi: lendingFacetAbi,
           functionName: 'expandRollingFromPosition',
-          args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, 0n],
+          args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, BigInt(0)],
         })
-        await publicClient.waitForTransactionReceipt({ hash: tx })
+        await publicClient!.waitForTransactionReceipt({ hash: tx })
         handleTxToast('Rolling credit expanded', tx)
         setRollingBorrowAmount('')
         refetch()
@@ -221,7 +222,7 @@ function CreditPage() {
         if (!lendingAddress) throw new Error('Lending pool address missing for selected pool')
 
         const parsedAmount = parseUnits(rollingPaymentAmount || '0', decimals)
-        if (parsedAmount <= 0n) throw new Error('Enter an amount above zero')
+        if (parsedAmount <= BigInt(0)) throw new Error('Enter an amount above zero')
 
         const tokenAddress = poolDetails.tokenAddress?.trim()
         if (!tokenAddress) throw new Error('Token address missing for pool')
@@ -236,7 +237,7 @@ function CreditPage() {
           args: [BigInt(selectedNFT.tokenId), BigInt(pid), parsedAmount, parsedAmount],
           value: isNative ? parsedAmount : undefined,
         })
-        await publicClient.waitForTransactionReceipt({ hash: tx })
+        await publicClient!.waitForTransactionReceipt({ hash: tx })
         handleTxToast('Rolling credit repaid', tx)
         setRollingPaymentAmount('')
         refetch()
@@ -257,7 +258,7 @@ function CreditPage() {
         if (!lendingAddress) throw new Error('Lending pool address missing for selected pool')
 
         const parsedAmount = parseUnits(fixedBorrowAmount || '0', decimals)
-        if (parsedAmount <= 0n) throw new Error('Enter an amount above zero')
+        if (parsedAmount <= BigInt(0)) throw new Error('Enter an amount above zero')
 
         const tx = await writeContractAsync({
           address: lendingAddress,
@@ -268,10 +269,10 @@ function CreditPage() {
             BigInt(pid),
             parsedAmount,
             BigInt(fixedTermIndex),
-            0n,
+            BigInt(0),
           ],
         })
-        await publicClient.waitForTransactionReceipt({ hash: tx })
+        await publicClient!.waitForTransactionReceipt({ hash: tx })
         handleTxToast('Fixed loan opened', tx)
         setFixedBorrowAmount('')
         refetch()
@@ -293,7 +294,7 @@ function CreditPage() {
         if (!selectedFixedLoanId) throw new Error('Select a loan')
 
         const parsedAmount = parseUnits(fixedRepayAmount || '0', decimals)
-        if (parsedAmount <= 0n) throw new Error('Enter an amount above zero')
+        if (parsedAmount <= BigInt(0)) throw new Error('Enter an amount above zero')
 
         const tokenAddress = poolDetails.tokenAddress?.trim()
         if (!tokenAddress) throw new Error('Token address missing for pool')
@@ -314,7 +315,7 @@ function CreditPage() {
           ],
           value: isNative ? parsedAmount : undefined,
         })
-        await publicClient.waitForTransactionReceipt({ hash: tx })
+        await publicClient!.waitForTransactionReceipt({ hash: tx })
         handleTxToast('Fixed loan repaid', tx)
         setFixedRepayAmount('')
         refetch()
@@ -343,9 +344,9 @@ function CreditPage() {
               <select
                 className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                 value={selectedPositionKey}
-                onChange={(e) => setSelectedPositionKey(e.target.value)}
+                onChange={(e: any) => setSelectedPositionKey(e.target.value)}
               >
-                {sortedPositions.map((nft) => (
+                {sortedPositions.map((nft: PositionNFT) => (
                   <option key={nft.positionKey} value={nft.positionKey}>
                     #{nft.tokenId} · {nft.poolName}
                   </option>
@@ -392,7 +393,7 @@ function CreditPage() {
                 <label className="text-xs uppercase tracking-[0.2em] text-neutral3">Borrow Amount</label>
                 <input
                   value={rollingBorrowAmount}
-                  onChange={(e) => setRollingBorrowAmount(e.target.value)}
+                  onChange={(e: any) => setRollingBorrowAmount(e.target.value)}
                   className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                   placeholder="0.0"
                 />
@@ -400,14 +401,14 @@ function CreditPage() {
                   <button
                     onClick={handleOpenRolling}
                     className="min-h-[44px] rounded-full border border-surface3 px-4 text-xs font-semibold text-neutral1 transition hover:border-accent1"
-                    disabled={pendingAction}
+                    disabled={!!pendingAction}
                   >
                     Open Rolling
                   </button>
                   <button
                     onClick={handleExpandRolling}
                     className="min-h-[44px] rounded-full border border-surface3 px-4 text-xs font-semibold text-neutral1 transition hover:border-accent1"
-                    disabled={pendingAction}
+                    disabled={!!pendingAction}
                   >
                     Expand Rolling
                   </button>
@@ -418,7 +419,7 @@ function CreditPage() {
                 <label className="text-xs uppercase tracking-[0.2em] text-neutral3">Repay Amount</label>
                 <input
                   value={rollingPaymentAmount}
-                  onChange={(e) => setRollingPaymentAmount(e.target.value)}
+                  onChange={(e: any) => setRollingPaymentAmount(e.target.value)}
                   className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                   placeholder="0.0"
                 />
@@ -426,7 +427,7 @@ function CreditPage() {
                   <button
                     onClick={handleRepayRolling}
                     className="min-h-[44px] rounded-full border border-surface3 px-4 text-xs font-semibold text-neutral1 transition hover:border-accent1"
-                    disabled={pendingAction}
+                    disabled={!!pendingAction}
                   >
                     Repay Rolling
                   </button>
@@ -443,9 +444,9 @@ function CreditPage() {
                 <select
                   className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                   value={fixedTermIndex}
-                  onChange={(e) => setFixedTermIndex(Number(e.target.value))}
+                  onChange={(e: any) => setFixedTermIndex(Number(e.target.value))}
                 >
-                  {FIXED_TERMS.map((term, idx) => (
+                  {FIXED_TERMS.map((term: any, idx: any) => (
                     <option key={term} value={idx}>
                       {term} days
                     </option>
@@ -456,7 +457,7 @@ function CreditPage() {
                 <label className="text-xs uppercase tracking-[0.2em] text-neutral3">Borrow Amount</label>
                 <input
                   value={fixedBorrowAmount}
-                  onChange={(e) => setFixedBorrowAmount(e.target.value)}
+                  onChange={(e: any) => setFixedBorrowAmount(e.target.value)}
                   className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                   placeholder="0.0"
                 />
@@ -464,7 +465,7 @@ function CreditPage() {
                   <button
                     onClick={handleOpenFixed}
                     className="min-h-[44px] rounded-full border border-surface3 px-4 text-xs font-semibold text-neutral1 transition hover:border-accent1"
-                    disabled={pendingAction}
+                    disabled={!!pendingAction}
                   >
                     Open Fixed
                   </button>
@@ -475,7 +476,7 @@ function CreditPage() {
                 <label className="text-xs uppercase tracking-[0.2em] text-neutral3">Repay Amount</label>
                 <input
                   value={fixedRepayAmount}
-                  onChange={(e) => setFixedRepayAmount(e.target.value)}
+                  onChange={(e: any) => setFixedRepayAmount(e.target.value)}
                   className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                   placeholder="0.0"
                 />
@@ -483,7 +484,7 @@ function CreditPage() {
                   <button
                     onClick={handleRepayFixed}
                     className="min-h-[44px] rounded-full border border-surface3 px-4 text-xs font-semibold text-neutral1 transition hover:border-accent1"
-                    disabled={pendingAction}
+                    disabled={!!pendingAction}
                   >
                     Repay Fixed
                   </button>
@@ -495,9 +496,9 @@ function CreditPage() {
                 <select
                   className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
                   value={selectedFixedLoanId}
-                  onChange={(e) => setSelectedFixedLoanId(e.target.value)}
+                  onChange={(e: any) => setSelectedFixedLoanId(e.target.value)}
                 >
-                  {fixedLoanOptions.map((id) => (
+                  {fixedLoanOptions.map((id: any) => (
                     <option key={id} value={id}>
                       Loan #{id}
                     </option>

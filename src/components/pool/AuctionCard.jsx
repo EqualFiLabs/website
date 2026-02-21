@@ -39,10 +39,10 @@ function AuctionCard({ auction, onJoin, onCancel, onAdd, onExit, canAddLiquidity
   const communityFees = useMemo(() => {
     if (auction.type !== 'community') return null
     const totalShares = BigInt(auction.displayTotalShares ?? 0)
-    if (totalShares === 0n) return { feeA: null, feeB: null }
+    if (totalShares === BigInt(0)) return { feeA: null, feeB: null }
     const feeIndexA = BigInt(auction.displayFeeIndexA ?? 0)
     const feeIndexB = BigInt(auction.displayFeeIndexB ?? 0)
-    const scale = 10n ** 18n
+    const scale = BigInt(10) ** BigInt(18)
     const amountARaw = (feeIndexA * totalShares) / scale
     const amountBRaw = (feeIndexB * totalShares) / scale
     return {

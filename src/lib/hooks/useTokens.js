@@ -22,7 +22,7 @@ export const filterTokens = (tokens, query) => {
 
 export const mapBalancesToTokens = (tokens, balances) =>
   tokens.map((token, idx) => {
-    const balance = balances?.[idx] ?? token.balance ?? 0n
+    const balance = balances?.[idx] ?? token.balance ?? BigInt(0)
     return {
       ...token,
       balance,
@@ -45,7 +45,7 @@ function useTokens() {
     queryFn: async () => {
       const tokens = baseTokens
       if (!address || !publicClient) {
-        return mapBalancesToTokens(tokens, tokens.map(() => 0n))
+        return mapBalancesToTokens(tokens, tokens.map(() => BigInt(0)))
       }
 
       const erc20Tokens = tokens.filter(
@@ -68,23 +68,23 @@ function useTokens() {
             allowFailure: true,
           })
         : []
-      const nativeBalance = nativeTokens.length ? await publicClient.getBalance({ address }) : 0n
+      const nativeBalance = nativeTokens.length ? await publicClient.getBalance({ address }) : BigInt(0)
 
       let erc20Index = 0
       const balances = tokens.map((token) => {
-        if (!token.address) return 0n
+        if (!token.address) return BigInt(0)
         if (token.address.toLowerCase() === ZERO_ADDRESS) {
           return nativeBalance
         }
         const result = results[erc20Index]
         erc20Index += 1
-        return result?.status === 'success' ? result.result : 0n
+        return result?.status === 'success' ? result.result : BigInt(0)
       })
       return mapBalancesToTokens(tokens, balances)
     },
   })
 
-  const tokens = data || mapBalancesToTokens(baseTokens, baseTokens.map(() => 0n))
+  const tokens = data || mapBalancesToTokens(baseTokens, baseTokens.map(() => BigInt(0)))
 
   return {
     tokens,

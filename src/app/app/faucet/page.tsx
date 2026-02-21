@@ -1,4 +1,5 @@
 "use client";
+import type { PoolConfig, Auction, PositionNFT, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useWriteContract } from "wagmi";
@@ -7,8 +8,8 @@ import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import { faucetAbi } from "@/lib/abis/faucet";
 import { AppShell } from "../../app-shell";
 import { useToasts } from "@/components/common/ToastProvider";
-
-const FAUCET_ADDRESS = process.env.NEXT_PUBLIC_FAUCET_ADDRESS as `0x${string}` | undefined;
+import { resolvePoolsConfig } from "@/lib/poolsConfig";
+import useActiveChainId from "@/lib/hooks/useActiveChainId";
 
 interface TokenInfo {
   address: `0x${string}`;
@@ -36,21 +37,24 @@ export default function FaucetPage() {
   const publicClient = useActivePublicClient();
   const { address, isConnected } = useAccount();
   const { writeContractAsync, isPending } = useWriteContract();
+  const chainId = useActiveChainId();
+  const poolsConfig = resolvePoolsConfig(chainId);
+  const FAUCET_ADDRESS = poolsConfig?.faucetAddress as `0x${string}` | undefined;
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
-  const [lastClaimAt, setLastClaimAt] = useState<bigint>(0n);
-  const [claimInterval, setClaimInterval] = useState<bigint>(86400n);
-  const [loading, setLoading] = useState(true);
-  const [claiming, setClaiming] = useState(false);
+  const [lastClaimAt, setLastClaimAt] = useState<bigint>(BigInt(0));
+  const [claimInterval, setClaimInterval] = useState<bigint>(BigInt(86400));
+  const [loading, setLoading] = useState<boolean>(true);
+  const [claiming, setClaiming] = useState<boolean>(false);
 
   const canClaim = useMemo(() => {
-    if (!address || lastClaimAt === 0n) return true;
+    if (!address || lastClaimAt === BigInt(0)) return true;
     const now = BigInt(Math.floor(Date.now() / 1000));
     return now >= lastClaimAt + claimInterval;
   }, [address, lastClaimAt, claimInterval]);
 
   const nextClaimTime = useMemo(() => {
-    if (lastClaimAt === 0n) return 0;
+    if (lastClaimAt === BigInt(0)) return 0;
     return Number(lastClaimAt + claimInterval) * 1000;
   }, [lastClaimAt, claimInterval]);
 
@@ -74,7 +78,7 @@ export default function FaucetPage() {
         console.log('[Faucet] Fetching data from:', FAUCET_ADDRESS);
         
         // Fetch claim interval
-        const interval = await publicClient.readContract({
+        const interval = await publicClient!.readContract({
           address: FAUCET_ADDRESS,
           abi: faucetAbi,
           functionName: "CLAIM_INTERVAL",
@@ -84,7 +88,7 @@ export default function FaucetPage() {
 
         // Fetch user's last claim time
         if (address) {
-          const lastClaim = await publicClient.readContract({
+          const lastClaim = await publicClient!.readContract({
             address: FAUCET_ADDRESS,
             abi: faucetAbi,
             functionName: "lastClaimAt",
@@ -95,18 +99,18 @@ export default function FaucetPage() {
         }
 
         // Fetch configured tokens
-        const tokenAddresses = await publicClient.readContract({
+        const tokenAddresses = await publicClient!.readContract({
           address: FAUCET_ADDRESS,
           abi: faucetAbi,
           functionName: "getTokens",
-        }) as `0x${string}[]`;
+        }) as `0x${string}`[];
         
         console.log('[Faucet] Token addresses:', tokenAddresses);
 
         if (!cancelled && tokenAddresses.length > 0) {
           // Fetch config and metadata for each token
           const tokenData = await Promise.all(
-            tokenAddresses.map(async (tokenAddr) => {
+            tokenAddresses.map(async (tokenAddr: any) => {
               try {
                 const [config, symbol, decimals, balance] = await Promise.all([
                   publicClient.readContract({
@@ -194,7 +198,7 @@ export default function FaucetPage() {
         type: "pending",
       });
 
-      await publicClient.waitForTransactionReceipt({ hash: tx });
+      await publicClient!.waitForTransactionReceipt({ hash: tx });
 
       // Update last claim time
       const now = BigInt(Math.floor(Date.now() / 1000));
@@ -205,8 +209,8 @@ export default function FaucetPage() {
         description: "Check your wallet for the received tokens.",
         type: "success",
       });
-    } catch (err: any) {
-      const message = err?.message || err?.shortMessage || "Claim failed";
+    } catch (err) {
+      const message = (err as any)?.message || (err as any)?.shortMessage || "Claim failed";
       
       // Parse common errors
       if (message.includes("ClaimTooSoon")) {
@@ -312,7 +316,7 @@ export default function FaucetPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {tokens.map((token) => {
+              {tokens.map((token: TokenInfo) => {
                 const hasEnough = token.balance >= token.amount;
                 return (
                   <div
