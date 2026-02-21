@@ -108,8 +108,16 @@ export default function ToolsPage() {
     else {
       setErc20Allowances({});
       setNftApprovals({});
+      setNfts([]);
     }
   }, [isConnected, address, publicClient, nfts]);
+
+  // Debug: log what we're getting
+  useEffect(() => {
+    console.log('[Tools] Raw nfts from hook:', nfts);
+    console.log('[Tools] nftsWithTba:', nftsWithTba);
+    console.log('[Tools] nftApprovals:', nftApprovals);
+  }, [nfts, nftsWithTba, nftApprovals]);
 
   const handleRevokeErc20 = async (token: any) => {
     setRevoking(token.address);
@@ -357,9 +365,16 @@ export default function ToolsPage() {
                                 <span className="text-xs text-neutral3">Approved</span>
                               ) : nft.tbaAddress ? (
                                 <button
-                                  onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('[Tools] Approve TBA clicked for NFT', nft.tokenId, nft.tbaAddress);
+                                    handleApproveNft(nft.tokenId, nft.tbaAddress);
+                                  }}
                                   disabled={revoking === nft.tokenId}
-                                  className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all disabled:opacity-50"
+                                  className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all disabled:opacity-50 cursor-pointer"
+                                  style={{ pointerEvents: 'auto' }}
                                 >
                                   {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
                                 </button>
@@ -400,9 +415,16 @@ export default function ToolsPage() {
                         <div className="text-center text-xs text-neutral3 py-2">Approved</div>
                       ) : nft.tbaAddress ? (
                         <button
-                          onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('[Tools Mobile] Approve TBA clicked for NFT', nft.tokenId, nft.tbaAddress);
+                            handleApproveNft(nft.tokenId, nft.tbaAddress);
+                          }}
                           disabled={revoking === nft.tokenId}
-                          className="w-full px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered disabled:opacity-50"
+                          className="w-full px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered disabled:opacity-50 cursor-pointer"
+                          style={{ pointerEvents: 'auto' }}
                         >
                           {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
                         </button>
