@@ -14,7 +14,7 @@ const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "";
 const config = getDefaultConfig({
   appName: "EqualFi",
   projectId,
-  chains: [foundry, arbitrumSepolia, baseSepolia, sepolia],
+  chains: [arbitrumSepolia, baseSepolia, sepolia],
   transports: {
     [foundry.id]: http(process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545"),
     [arbitrumSepolia.id]: http(),

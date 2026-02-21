@@ -222,17 +222,6 @@ function AuctionManagementPage() {
               My Auctions
             </button>
             <button
-              onClick={() => {
-                setView('list')
-                setFilter('inactive')
-              }}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
-                view === 'list' && filter === 'inactive' ? 'bg-surface1 text-neutral1 shadow-sm' : 'text-neutral2 hover:text-neutral1'
-              }`}
-            >
-              Inactive
-            </button>
-            <button
               onClick={() => setView('create')}
               className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
                 view === 'create' ? 'bg-surface1 text-neutral1 shadow-sm' : 'text-neutral2 hover:text-neutral1'
