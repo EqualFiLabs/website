@@ -536,20 +536,22 @@ export default function AgentsPage() {
       const ttlSeconds = parseUint(ammTtlSeconds);
       const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
 
-      // 1) Install AMM execution module on the TBA (if not already installed)
+      // 1) Check if AMM execution module is already installed
       let alreadyInstalled = false;
       try {
-        await publicClient!.readContract({
+        const diamond = (await publicClient!.readContract({
           address: tbaAddress,
           abi: positionAgentAmmSkillModuleAbi,
           functionName: "getDiamond",
-        });
-        alreadyInstalled = true;
+        })) as string;
+        alreadyInstalled = Boolean(diamond && diamond !== "0x0000000000000000000000000000000000000000");
       } catch {
-        // getDiamond reverts with unrecognised selector → not installed
+        alreadyInstalled = false;
       }
 
-      if (!alreadyInstalled) {
+      if (alreadyInstalled) {
+        addToast({ title: "AMM module already installed (1/4)", type: "success" });
+      } else {
         try {
           const manifest = await publicClient!.readContract({
             address: ammSkillModule,
@@ -566,12 +568,9 @@ export default function AgentsPage() {
           addToast({ title: "Installing AMM skill module (1/4)", type: "pending" });
           await publicClient!.waitForTransactionReceipt({ hash: installTx });
         } catch (installErr: any) {
-          // If install fails (e.g., selector already installed), log and continue
-          console.warn('[AMM Template] Install failed, assuming already installed:', installErr);
-          addToast({ title: "AMM module already installed (1/4)", type: "success" });
+          addToast({ title: "Install failed - module may already be installed", description: installErr?.message?.slice(0, 100), type: "error" });
+          throw installErr;
         }
-      } else {
-        addToast({ title: "AMM module already installed (1/4)", type: "success" });
       }
 
       // 2) Configure AMM module
