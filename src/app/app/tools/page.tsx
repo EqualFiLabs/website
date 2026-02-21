@@ -353,23 +353,18 @@ export default function ToolsPage() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {!isRevoked && (
-                                <button
-                                  onClick={() => handleRevokeNft(nft.tokenId)}
-                                  disabled={revoking === nft.tokenId}
-                                  className="px-4 py-2 rounded-full text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-all"
-                                >
-                                  {revoking === nft.tokenId ? "Revoking..." : "Revoke"}
-                                </button>
-                              )}
-                              {nft.tbaAddress && !isTba && (
+                              {isTba ? (
+                                <span className="text-xs text-neutral3">Approved</span>
+                              ) : nft.tbaAddress ? (
                                 <button
                                   onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
                                   disabled={revoking === nft.tokenId}
-                                  className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all"
+                                  className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all disabled:opacity-50"
                                 >
                                   {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
                                 </button>
+                              ) : (
+                                <span className="text-xs text-neutral3">No TBA</span>
                               )}
                             </div>
                           </td>
@@ -401,26 +396,19 @@ export default function ToolsPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        {!isRevoked && (
-                          <button
-                            onClick={() => handleRevokeNft(nft.tokenId)}
-                            disabled={revoking === nft.tokenId}
-                            className="flex-1 px-4 py-2 rounded-full text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30"
-                          >
-                            {revoking === nft.tokenId ? "Revoking..." : "Revoke"}
-                          </button>
-                        )}
-                        {nft.tbaAddress && !isTba && (
-                          <button
-                            onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
-                            disabled={revoking === nft.tokenId}
-                            className="flex-1 px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1"
-                          >
-                            {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
-                          </button>
-                        )}
-                      </div>
+                      {isTba ? (
+                        <div className="text-center text-xs text-neutral3 py-2">Approved</div>
+                      ) : nft.tbaAddress ? (
+                        <button
+                          onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
+                          disabled={revoking === nft.tokenId}
+                          className="w-full px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered disabled:opacity-50"
+                        >
+                          {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
+                        </button>
+                      ) : (
+                        <div className="text-center text-xs text-neutral3 py-2">No TBA deployed</div>
+                      )}
                     </div>
                   );
                 })}
