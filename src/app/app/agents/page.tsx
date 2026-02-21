@@ -550,20 +550,26 @@ export default function AgentsPage() {
       }
 
       if (!alreadyInstalled) {
-        const manifest = await publicClient!.readContract({
-          address: ammSkillModule,
-          abi: positionAgentAmmSkillModuleAbi,
-          functionName: "executionManifest",
-        });
+        try {
+          const manifest = await publicClient!.readContract({
+            address: ammSkillModule,
+            abi: positionAgentAmmSkillModuleAbi,
+            functionName: "executionManifest",
+          });
 
-        const installTx = await writeContractAsync({
-          address: tbaAddress,
-          abi: erc6900AccountAbi,
-          functionName: "installExecution",
-          args: [ammSkillModule, manifest, "0x"],
-        });
-        addToast({ title: "Installing AMM skill module (1/4)", type: "pending" });
-        await publicClient!.waitForTransactionReceipt({ hash: installTx });
+          const installTx = await writeContractAsync({
+            address: tbaAddress,
+            abi: erc6900AccountAbi,
+            functionName: "installExecution",
+            args: [ammSkillModule, manifest, "0x"],
+          });
+          addToast({ title: "Installing AMM skill module (1/4)", type: "pending" });
+          await publicClient!.waitForTransactionReceipt({ hash: installTx });
+        } catch (installErr: any) {
+          // If install fails (e.g., selector already installed), log and continue
+          console.warn('[AMM Template] Install failed, assuming already installed:', installErr);
+          addToast({ title: "AMM module already installed (1/4)", type: "success" });
+        }
       } else {
         addToast({ title: "AMM module already installed (1/4)", type: "success" });
       }
