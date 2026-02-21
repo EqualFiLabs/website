@@ -399,7 +399,9 @@ export default function AgentsPage() {
     }
     try {
       setIsDeploying(true);
-      const txHash = await writeContractAsync({
+      
+      // Step 1: Deploy TBA
+      const deployTxHash = await writeContractAsync({
         address: diamondAddress,
         abi: positionAgentTBAFacetAbi,
         functionName: "deployTBA",
@@ -410,20 +412,42 @@ export default function AgentsPage() {
         description: "Waiting for confirmation…",
         type: "pending",
       });
-      await publicClient?.waitForTransactionReceipt({ hash: txHash });
-      try {
-        const addr = await publicClient?.readContract({
-          address: diamondAddress,
-          abi: positionAgentViewFacetAbi,
-          functionName: "getTBAAddress",
-          args: [BigInt(selectedNft)],
-        }) as `0x${string}` | undefined;
-        if (addr) setTbaAddress(addr);
-        setTbaDeployed(true);
-      } catch (refreshErr) {
-        console.warn("Failed to refresh TBA state", refreshErr);
+      await publicClient?.waitForTransactionReceipt({ hash: deployTxHash });
+      
+      // Get TBA address
+      const addr = await publicClient?.readContract({
+        address: diamondAddress,
+        abi: positionAgentViewFacetAbi,
+        functionName: "getTBAAddress",
+        args: [BigInt(selectedNft)],
+      }) as `0x${string}` | undefined;
+      
+      if (!addr) {
+        throw new Error("Failed to get TBA address");
       }
-      addToast({ title: "TBA deployed", type: "success" });
+      
+      // Step 2: Approve TBA to operate the Position NFT
+      const positionNftAddress = process.env.NEXT_PUBLIC_POSITION_NFT_ADDRESS as `0x${string}`;
+      if (!positionNftAddress) {
+        throw new Error("Position NFT address not configured");
+      }
+      
+      const approveTxHash = await writeContractAsync({
+        address: positionNftAddress,
+        abi: erc721Abi,
+        functionName: "approve",
+        args: [addr, BigInt(selectedNft)],
+      });
+      addToast({
+        title: "Approving TBA",
+        description: "Granting TBA permission to operate NFT…",
+        type: "pending",
+      });
+      await publicClient?.waitForTransactionReceipt({ hash: approveTxHash });
+      
+      setTbaAddress(addr);
+      setTbaDeployed(true);
+      addToast({ title: "TBA deployed and approved", type: "success" });
     } catch (err) {
       console.error(err);
       addToast({ title: "Deploy failed", description: (err as any)?.message || "Transaction reverted", type: "error" });
@@ -836,15 +860,15 @@ export default function AgentsPage() {
       <div
         className="flex items-center justify-between gap-4 rounded-2xl border border-accent1/30 bg-accent1/5 px-5 py-3 text-sm font-mono text-accent1"
       >
-        <a href="/skills/equalfi-amm-skill.zip" download className="flex flex-col gap-1 hover:underline">
+        <a href="/skills/equalfi-amm.zip" download className="flex flex-col gap-1 hover:underline">
           <span>↓ Download OpenClaw AMM Agent Skill</span>
-          <code className="text-xs text-accent1/60">curl -LO https://equalfi.org/skills/equalfi-amm-skill.zip</code>
+          <code className="text-xs text-accent1/60">curl -LO https://equalfi.org/skills/equalfi-amm.zip</code>
         </a>
         <button
           type="button"
           onClick={(e) => {
             e.preventDefault();
-            navigator.clipboard.writeText("curl -LO https://equalfi.org/skills/equalfi-amm-skill.zip");
+            navigator.clipboard.writeText("curl -LO https://equalfi.org/skills/equalfi-amm.zip");
           }}
           className="shrink-0 p-1.5 rounded-lg hover:bg-accent1/20 transition-colors"
           title="Copy curl command"
