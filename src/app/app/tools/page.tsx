@@ -19,6 +19,7 @@ export default function ToolsPage() {
 
   const [erc20Allowances, setErc20Allowances] = useState<Record<string, bigint>>({});
   const [nftApprovals, setNftApprovals] = useState<Record<string, string>>({});
+  const [nftsWithTba, setNfts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [approveModalToken, setApproveModalToken] = useState<any>(null);
@@ -44,6 +45,31 @@ export default function ToolsPage() {
     const newNftApprovals: Record<string, string> = {};
 
     try {
+      // Fetch TBA addresses for all NFTs first
+      const nftsWithTba = await Promise.all(
+        (nfts || []).map(async (nft) => {
+          try {
+            const tbaAddr = await publicClient.readContract({
+              address: diamondAddress,
+              abi: [
+                {
+                  inputs: [{ name: "tokenId", type: "uint256" }],
+                  name: "getTBAAddress",
+                  outputs: [{ name: "", type: "address" }],
+                  stateMutability: "view",
+                  type: "function",
+                },
+              ],
+              functionName: "getTBAAddress",
+              args: [BigInt(nft.tokenId)],
+            });
+            return { ...nft, tbaAddress: tbaAddr as string };
+          } catch {
+            return { ...nft, tbaAddress: null };
+          }
+        })
+      );
+
       await Promise.all([
         ...tokens.map(async (token) => {
           const allowance = await publicClient.readContract({
@@ -54,7 +80,7 @@ export default function ToolsPage() {
           });
           newErc20Allowances[token.address] = allowance as bigint;
         }),
-        ...(nfts || []).map(async (nft) => {
+        ...nftsWithTba.map(async (nft) => {
           if (!positionNftAddress) return;
           const approved = await publicClient.readContract({
             address: positionNftAddress,
@@ -65,6 +91,9 @@ export default function ToolsPage() {
           newNftApprovals[nft.tokenId] = approved as string;
         }),
       ]);
+
+      // Update NFTs with TBA addresses
+      setNfts(nftsWithTba as any);
       setErc20Allowances(newErc20Allowances);
       setNftApprovals(newNftApprovals);
     } catch (err) {
@@ -286,7 +315,7 @@ export default function ToolsPage() {
             <div className="text-center py-12 text-neutral3 bg-surface2/30 rounded-2xl border border-surface2 border-dashed">
               <p>Connect your wallet to view NFT approvals.</p>
             </div>
-          ) : !nfts || nfts.length === 0 ? (
+          ) : !nftsWithTba || nftsWithTba.length === 0 ? (
             <div className="text-center py-12 text-neutral3 bg-surface2/30 rounded-2xl border border-surface2 border-dashed">
               <p>No Position NFTs found.</p>
             </div>
@@ -303,7 +332,7 @@ export default function ToolsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface2 bg-surface1/50">
-                    {nfts.map((nft: any) => {
+                    {nftsWithTba.map((nft: any) => {
                       const approved = nftApprovals[nft.tokenId] || "0x0000000000000000000000000000000000000000";
                       const isRevoked = approved === "0x0000000000000000000000000000000000000000";
                       const isTba = nft.tbaAddress && approved.toLowerCase() === nft.tbaAddress.toLowerCase();
@@ -353,7 +382,7 @@ export default function ToolsPage() {
 
               {/* Mobile Cards */}
               <div className="md:hidden space-y-3">
-                {nfts.map((nft: any) => {
+                {nftsWithTba.map((nft: any) => {
                   const approved = nftApprovals[nft.tokenId] || "0x0000000000000000000000000000000000000000";
                   const isRevoked = approved === "0x0000000000000000000000000000000000000000";
                   const isTba = nft.tbaAddress && approved.toLowerCase() === nft.tbaAddress.toLowerCase();
