@@ -833,17 +833,28 @@ export default function AgentsPage() {
 
   return (
     <AppShell title="Position Agents">
-      <a
-        href="/skills/equalfi-amm-skill.zip"
-        download
-        className="flex items-center justify-between gap-4 rounded-2xl border border-accent1/30 bg-accent1/5 px-5 py-3 text-sm font-mono text-accent1 hover:bg-accent1/10 transition-colors"
+      <div
+        className="flex items-center justify-between gap-4 rounded-2xl border border-accent1/30 bg-accent1/5 px-5 py-3 text-sm font-mono text-accent1"
       >
-        <div className="flex flex-col gap-1">
+        <a href="/skills/equalfi-amm-skill.zip" download className="flex flex-col gap-1 hover:underline">
           <span>↓ Download OpenClaw AMM Agent Skill</span>
           <code className="text-xs text-accent1/60">curl -LO https://equalfi.org/skills/equalfi-amm-skill.zip</code>
-        </div>
-        <span className="text-xs text-accent1/60">.zip</span>
-      </a>
+        </a>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            navigator.clipboard.writeText("curl -LO https://equalfi.org/skills/equalfi-amm-skill.zip");
+          }}
+          className="shrink-0 p-1.5 rounded-lg hover:bg-accent1/20 transition-colors"
+          title="Copy curl command"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        </button>
+      </div>
       <div className="space-y-10">
         <section className="grid gap-6">
           <Card>
