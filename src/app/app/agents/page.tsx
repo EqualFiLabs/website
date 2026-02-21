@@ -562,8 +562,10 @@ export default function AgentsPage() {
           functionName: "installExecution",
           args: [ammSkillModule, manifest, "0x"],
         });
-        addToast({ title: "Installing AMM skill module", type: "pending" });
+        addToast({ title: "Installing AMM skill module (1/4)", type: "pending" });
         await publicClient!.waitForTransactionReceipt({ hash: installTx });
+      } else {
+        addToast({ title: "AMM module already installed (1/4)", type: "success" });
       }
 
       // 2) Configure AMM module
@@ -587,7 +589,7 @@ export default function AgentsPage() {
         functionName: "setDiamond",
         args: [diamondAddress],
       });
-      addToast({ title: "Configuring AMM skill", type: "pending" });
+      addToast({ title: "Configuring AMM skill (2/4)", type: "pending" });
       await publicClient!.waitForTransactionReceipt({ hash: setDiamondTx });
 
       // Set auction policy
@@ -597,6 +599,7 @@ export default function AgentsPage() {
         functionName: "setAuctionPolicy",
         args: [policy],
       });
+      addToast({ title: "Setting auction policy (3/4)", type: "pending" });
       await publicClient!.waitForTransactionReceipt({ hash: setPolicyTx });
 
       // Set roll policy (enable rolling yield to position)
@@ -632,7 +635,7 @@ export default function AgentsPage() {
           [],
         ],
       });
-      addToast({ title: "Installing AMM session policy", type: "pending" });
+      addToast({ title: "Installing AMM session policy (4/4)", type: "pending" });
       await publicClient!.waitForTransactionReceipt({ hash: txHash });
 
       addToast({ title: "AMM skill template applied", type: "success" });
@@ -1021,6 +1024,7 @@ export default function AgentsPage() {
                   <Input value={ammTtlSeconds} onChange={(e: any) => setAmmTtlSeconds(e.target.value)} />
                 </Field>
               </div>
+              <p className="text-xs text-neutral3 mb-2">This will require 4 wallet confirmations: install module, configure skill, set policies, and enable session key.</p>
               <ActionButton disabled={isInstallingAmm} onClick={handleApplyAmmTemplate}>
                 {isInstallingAmm ? "Applying AMM Template…" : "Apply AMM Skill Template"}
               </ActionButton>
