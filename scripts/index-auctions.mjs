@@ -161,8 +161,9 @@ const upsertAuction = async (chainId, row) => {
        fee_bps, fee_asset, active, finalized, raw, updated_at)
     VALUES
       ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
-    ON CONFLICT (chain_id, type, auction_id)
+    ON CONFLICT (chain_id, auction_id)
     DO UPDATE SET
+      type = EXCLUDED.type,
       maker_position_id = EXCLUDED.maker_position_id,
       pool_id_a = EXCLUDED.pool_id_a,
       pool_id_b = EXCLUDED.pool_id_b,

@@ -512,7 +512,19 @@ export default function AgentsPage() {
       const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
 
       // 1) Install AMM execution module on the TBA (if not already installed)
+      let alreadyInstalled = false;
       try {
+        await publicClient!.readContract({
+          address: tbaAddress,
+          abi: positionAgentAmmSkillModuleAbi,
+          functionName: "getDiamond",
+        });
+        alreadyInstalled = true;
+      } catch {
+        // getDiamond reverts with unrecognised selector → not installed
+      }
+
+      if (!alreadyInstalled) {
         const manifest = await publicClient!.readContract({
           address: ammSkillModule,
           abi: positionAgentAmmSkillModuleAbi,
@@ -527,9 +539,6 @@ export default function AgentsPage() {
         });
         addToast({ title: "Installing AMM skill module", type: "pending" });
         await publicClient!.waitForTransactionReceipt({ hash: installTx });
-      } catch (err) {
-        // ignore if already installed
-        console.warn("AMM module install skipped", err);
       }
 
       // 2) Configure AMM module
