@@ -114,50 +114,58 @@ const communityAuctionAbi = [
     ],
   },
 ];
-const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
-const diamond = process.env.NEXT_PUBLIC_DIAMOND_ADDRESS;
+
+// ── Multi-chain config ──────────────────────────────────────────────
+// RPC URLs from env to avoid leaking API keys
+const CHAINS = [
+  {
+    chainId: 421614,
+    name: "Arbitrum Sepolia",
+    rpcUrl: process.env.RPC_ARBITRUM_SEPOLIA || "https://sepolia-rollup.arbitrum.io/rpc",
+    diamond: "0x027c9ba58be0af69c990da55630d9042d067652b",
+  },
+  {
+    chainId: 84532,
+    name: "Base Sepolia",
+    rpcUrl: process.env.RPC_BASE_SEPOLIA || "https://sepolia.base.org",
+    diamond: "0x027c9ba58be0af69c990da55630d9042d067652b",
+  },
+  {
+    chainId: 11155111,
+    name: "Ethereum Sepolia",
+    rpcUrl: process.env.RPC_ETHEREUM_SEPOLIA || "https://rpc.sepolia.org",
+    diamond: "0x027c9ba58be0af69c990da55630d9042d067652b",
+  },
+];
+
+// Allow filtering to a single chain via CLI arg: node index-auctions.mjs 84532
+const filterChainId = process.argv[2] ? Number(process.argv[2]) : null;
+
 const PAGE_SIZE = Number(process.env.AUCTION_PAGE_SIZE || 100);
 const connectionString = process.env.DATABASE_URL;
 
-if (!diamond) throw new Error("NEXT_PUBLIC_DIAMOND_ADDRESS missing");
+// BigInt-safe JSON serializer for raw on-chain structs
+const safeStringify = (obj) =>
+  JSON.stringify(obj, (_key, value) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
 if (!connectionString) throw new Error("DATABASE_URL missing");
 
 const db = new Pool({ connectionString });
-const client = createPublicClient({ transport: http(rpcUrl) });
 
-const ensureSchema = async () => {
-  const sql = `
-  CREATE TABLE IF NOT EXISTS auctions (
-    id BIGINT NOT NULL,
-    type TEXT NOT NULL,
-    token_a TEXT,
-    token_b TEXT,
-    reserve_a NUMERIC,
-    reserve_b NUMERIC,
-    start_time BIGINT,
-    end_time BIGINT,
-    fee_bps INTEGER,
-    fee_asset INTEGER,
-    active BOOLEAN,
-    finalized BOOLEAN,
-    raw JSONB,
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (id, type)
-  );
-  CREATE INDEX IF NOT EXISTS auctions_active_idx ON auctions (active, finalized);
-  CREATE INDEX IF NOT EXISTS auctions_pair_idx ON auctions (token_a, token_b);
-  `;
-  await db.query(sql);
-};
-
-const upsertAuction = async (row) => {
+const upsertAuction = async (chainId, row) => {
   const sql = `
     INSERT INTO auctions
-      (id, type, token_a, token_b, reserve_a, reserve_b, start_time, end_time, fee_bps, fee_asset, active, finalized, raw, updated_at)
+      (chain_id, auction_id, type, maker_position_id, pool_id_a, pool_id_b,
+       token_a, token_b, reserve_a, reserve_b, start_time, end_time,
+       fee_bps, fee_asset, active, finalized, raw, updated_at)
     VALUES
-      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
-    ON CONFLICT (id, type)
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
+    ON CONFLICT (chain_id, type, auction_id)
     DO UPDATE SET
+      maker_position_id = EXCLUDED.maker_position_id,
+      pool_id_a = EXCLUDED.pool_id_a,
+      pool_id_b = EXCLUDED.pool_id_b,
       token_a = EXCLUDED.token_a,
       token_b = EXCLUDED.token_b,
       reserve_a = EXCLUDED.reserve_a,
@@ -172,8 +180,12 @@ const upsertAuction = async (row) => {
       updated_at = NOW();
   `;
   await db.query(sql, [
+    chainId,
     row.id.toString(),
     row.type,
+    row.makerPositionId?.toString() ?? null,
+    row.poolIdA != null ? Number(row.poolIdA) : null,
+    row.poolIdB != null ? Number(row.poolIdB) : null,
     row.tokenA,
     row.tokenB,
     row.reserveA.toString(),
@@ -184,11 +196,11 @@ const upsertAuction = async (row) => {
     row.feeAsset,
     row.active,
     row.finalized,
-    JSON.stringify(row.raw),
+    safeStringify(row.raw),
   ]);
 };
 
-async function fetchIds(kind, offset, limit) {
+async function fetchIds(client, diamond, kind, offset, limit) {
   if (kind === "solo") {
     const result = await client.readContract({
       address: diamond,
@@ -207,7 +219,7 @@ async function fetchIds(kind, offset, limit) {
   return { ids: result[0], total: result[1] };
 }
 
-async function fetchAuction(kind, id) {
+async function fetchAuction(client, diamond, kind, id) {
   if (kind === "solo") {
     const result = await client.readContract({
       address: diamond,
@@ -219,6 +231,9 @@ async function fetchAuction(kind, id) {
     return {
       id,
       type: "solo",
+      makerPositionId: a.makerPositionId,
+      poolIdA: a.poolIdA,
+      poolIdB: a.poolIdB,
       tokenA: a.tokenA,
       tokenB: a.tokenB,
       reserveA: BigInt(a.reserveA),
@@ -242,6 +257,9 @@ async function fetchAuction(kind, id) {
   return {
     id,
     type: "community",
+    makerPositionId: a.creatorPositionId,
+    poolIdA: a.poolIdA,
+    poolIdB: a.poolIdB,
     tokenA: a.tokenA,
     tokenB: a.tokenB,
     reserveA: BigInt(a.reserveA),
@@ -256,24 +274,43 @@ async function fetchAuction(kind, id) {
   };
 }
 
-async function indexKind(kind) {
-  let offset = 0;
-  while (true) {
-    const { ids, total } = await fetchIds(kind, offset, PAGE_SIZE);
-    if (!ids.length) break;
-    for (const id of ids) {
-      const auction = await fetchAuction(kind, id);
-      await upsertAuction(auction);
+async function indexChain(chain) {
+  console.log(`Indexing ${chain.name} (${chain.chainId})...`);
+  const client = createPublicClient({ transport: http(chain.rpcUrl) });
+
+  for (const kind of ["solo", "community"]) {
+    let offset = 0;
+    while (true) {
+      const { ids, total } = await fetchIds(client, chain.diamond, kind, offset, PAGE_SIZE);
+      if (!ids.length) break;
+      for (const id of ids) {
+        try {
+          const auction = await fetchAuction(client, chain.diamond, kind, id);
+          await upsertAuction(chain.chainId, auction);
+          console.log(`  ${kind} #${id} ✓`);
+        } catch (err) {
+          console.error(`  ${kind} #${id} ✗`, err.message);
+        }
+      }
+      offset += ids.length;
+      if (offset >= Number(total)) break;
     }
-    offset += ids.length;
-    if (offset >= Number(total)) break;
   }
 }
 
 async function main() {
-  await ensureSchema();
-  await indexKind("solo");
-  await indexKind("community");
+  const chains = filterChainId
+    ? CHAINS.filter((c) => c.chainId === filterChainId)
+    : CHAINS;
+
+  if (!chains.length) {
+    throw new Error(`No chain config for chainId ${filterChainId}`);
+  }
+
+  for (const chain of chains) {
+    await indexChain(chain);
+  }
+
   await db.end();
   console.log("Auction index updated.");
 }
