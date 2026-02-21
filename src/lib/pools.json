@@ -65,6 +65,15 @@
         "decimals": 6,
         "tokenAddress": "0x30f89ed1ce6a8d4ea6cdd47f5e657d52496baa82",
         "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
+      },
+      {
+        "id": "ETH",
+        "pid": 6,
+        "tokenName": "Native ETH",
+        "ticker": "ETH",
+        "decimals": 18,
+        "tokenAddress": "0x0000000000000000000000000000000000000000",
+        "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
       }
     ]
   },
@@ -133,6 +142,15 @@
         "ticker": "USDC",
         "decimals": 6,
         "tokenAddress": "0x1261959bC4a9094b360523b53f7c56AF373881Ee",
+        "lendingPoolAddress": "0x027c9ba58be0af69c990da55630d9042d067652b"
+      },
+      {
+        "id": "ETH",
+        "pid": 6,
+        "tokenName": "Native ETH",
+        "ticker": "ETH",
+        "decimals": 18,
+        "tokenAddress": "0x0000000000000000000000000000000000000000",
         "lendingPoolAddress": "0x027c9ba58be0af69c990da55630d9042d067652b"
       }
     ]
