@@ -77,7 +77,7 @@ const upsertAuction = async (db, chainId, payload) => {
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW()
     )
-    ON CONFLICT (chain_id, auction_id)
+    ON CONFLICT (chain_id, type, auction_id)
     DO UPDATE SET
       type = COALESCE(EXCLUDED.type, auctions.type),
       maker_position_id = COALESCE(EXCLUDED.maker_position_id, auctions.maker_position_id),

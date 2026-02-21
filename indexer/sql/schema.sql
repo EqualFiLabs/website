@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS auctions (
   tx_hash TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY (chain_id, auction_id)
+  PRIMARY KEY (chain_id, type, auction_id)
 );
 
 CREATE TABLE IF NOT EXISTS indexer_state (
