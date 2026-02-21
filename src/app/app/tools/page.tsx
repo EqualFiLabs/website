@@ -185,54 +185,94 @@ export default function ToolsPage() {
               <p>Connect your wallet to view approvals.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-surface2">
-              <table className="w-full text-left">
-                <thead className="bg-surface2 text-xs uppercase tracking-wider text-neutral3 font-semibold">
-                  <tr>
-                    <th className="px-6 py-4">Asset</th>
-                    <th className="px-6 py-4">Allowance</th>
-                    <th className="px-6 py-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface2 bg-surface1/50">
-                  {tokens.map((token) => {
-                    const allowance = erc20Allowances[token.address] ?? 0n;
-                    const isRevoked = allowance === 0n;
-                    const isInfinite = allowance > 1n << 255n;
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-hidden rounded-2xl border border-surface2">
+                <table className="w-full text-left">
+                  <thead className="bg-surface2 text-xs uppercase tracking-wider text-neutral3 font-semibold">
+                    <tr>
+                      <th className="px-6 py-4">Asset</th>
+                      <th className="px-6 py-4">Allowance</th>
+                      <th className="px-6 py-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface2 bg-surface1/50">
+                    {tokens.map((token) => {
+                      const allowance = erc20Allowances[token.address] ?? 0n;
+                      const isRevoked = allowance === 0n;
+                      const isInfinite = allowance > 1n << 255n;
 
-                    return (
-                      <tr key={token.address} className="hover:bg-surface2/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-neutral1">{token.symbol}</div>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-mono text-neutral2">
+                      return (
+                        <tr key={token.address} className="hover:bg-surface2/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-neutral1">{token.symbol}</div>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-mono text-neutral2">
+                            {isRevoked ? <span className="text-neutral3">Revoked</span> : isInfinite ? <span className="text-accent1">Infinite</span> : formatUnits(allowance, token.decimals)}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleRevokeErc20(token)}
+                                disabled={isRevoked || revoking === token.address}
+                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                                  isRevoked ? "text-neutral3 cursor-not-allowed bg-surface2" : "text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20"
+                                }`}
+                              >
+                                {revoking === token.address ? "Revoking..." : "Revoke"}
+                              </button>
+                              <button
+                                onClick={() => setApproveModalToken(token)}
+                                className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all"
+                              >
+                                Approve
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-3">
+                {tokens.map((token) => {
+                  const allowance = erc20Allowances[token.address] ?? 0n;
+                  const isRevoked = allowance === 0n;
+                  const isInfinite = allowance > 1n << 255n;
+
+                  return (
+                    <div key={token.address} className="rounded-2xl border border-surface2 bg-surface1/50 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium text-neutral1">{token.symbol}</div>
+                        <div className="text-sm font-mono text-neutral2">
                           {isRevoked ? <span className="text-neutral3">Revoked</span> : isInfinite ? <span className="text-accent1">Infinite</span> : formatUnits(allowance, token.decimals)}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleRevokeErc20(token)}
-                              disabled={isRevoked || revoking === token.address}
-                              className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                                isRevoked ? "text-neutral3 cursor-not-allowed bg-surface2" : "text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20"
-                              }`}
-                            >
-                              {revoking === token.address ? "Revoking..." : "Revoke"}
-                            </button>
-                            <button
-                              onClick={() => setApproveModalToken(token)}
-                              className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all"
-                            >
-                              Approve
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleRevokeErc20(token)}
+                          disabled={isRevoked || revoking === token.address}
+                          className={`flex-1 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                            isRevoked ? "text-neutral3 cursor-not-allowed bg-surface2" : "text-red-400 bg-red-500/10 border border-red-500/30"
+                          }`}
+                        >
+                          {revoking === token.address ? "Revoking..." : "Revoke"}
+                        </button>
+                        <button
+                          onClick={() => setApproveModalToken(token)}
+                          className="flex-1 px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1"
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
 
@@ -251,63 +291,112 @@ export default function ToolsPage() {
               <p>No Position NFTs found.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-surface2">
-              <table className="w-full text-left">
-                <thead className="bg-surface2 text-xs uppercase tracking-wider text-neutral3 font-semibold">
-                  <tr>
-                    <th className="px-6 py-4">NFT</th>
-                    <th className="px-6 py-4">Approved To</th>
-                    <th className="px-6 py-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface2 bg-surface1/50">
-                  {nfts.map((nft: any) => {
-                    const approved = nftApprovals[nft.tokenId] || "0x0000000000000000000000000000000000000000";
-                    const isRevoked = approved === "0x0000000000000000000000000000000000000000";
-                    const isTba = nft.tbaAddress && approved.toLowerCase() === nft.tbaAddress.toLowerCase();
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-hidden rounded-2xl border border-surface2">
+                <table className="w-full text-left">
+                  <thead className="bg-surface2 text-xs uppercase tracking-wider text-neutral3 font-semibold">
+                    <tr>
+                      <th className="px-6 py-4">NFT</th>
+                      <th className="px-6 py-4">Approved To</th>
+                      <th className="px-6 py-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface2 bg-surface1/50">
+                    {nfts.map((nft: any) => {
+                      const approved = nftApprovals[nft.tokenId] || "0x0000000000000000000000000000000000000000";
+                      const isRevoked = approved === "0x0000000000000000000000000000000000000000";
+                      const isTba = nft.tbaAddress && approved.toLowerCase() === nft.tbaAddress.toLowerCase();
 
-                    return (
-                      <tr key={nft.tokenId} className="hover:bg-surface2/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-neutral1">Position #{nft.tokenId}</div>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-mono text-neutral2">
+                      return (
+                        <tr key={nft.tokenId} className="hover:bg-surface2/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-neutral1">Position #{nft.tokenId}</div>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-mono text-neutral2">
+                            {isRevoked ? (
+                              <span className="text-neutral3">None</span>
+                            ) : isTba ? (
+                              <span className="text-accent1">TBA</span>
+                            ) : (
+                              <span className="text-xs">{approved.slice(0, 10)}...{approved.slice(-8)}</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {!isRevoked && (
+                                <button
+                                  onClick={() => handleRevokeNft(nft.tokenId)}
+                                  disabled={revoking === nft.tokenId}
+                                  className="px-4 py-2 rounded-full text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-all"
+                                >
+                                  {revoking === nft.tokenId ? "Revoking..." : "Revoke"}
+                                </button>
+                              )}
+                              {nft.tbaAddress && !isTba && (
+                                <button
+                                  onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
+                                  disabled={revoking === nft.tokenId}
+                                  className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all"
+                                >
+                                  {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-3">
+                {nfts.map((nft: any) => {
+                  const approved = nftApprovals[nft.tokenId] || "0x0000000000000000000000000000000000000000";
+                  const isRevoked = approved === "0x0000000000000000000000000000000000000000";
+                  const isTba = nft.tbaAddress && approved.toLowerCase() === nft.tbaAddress.toLowerCase();
+
+                  return (
+                    <div key={nft.tokenId} className="rounded-2xl border border-surface2 bg-surface1/50 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium text-neutral1">Position #{nft.tokenId}</div>
+                        <div className="text-sm font-mono text-neutral2">
                           {isRevoked ? (
                             <span className="text-neutral3">None</span>
                           ) : isTba ? (
                             <span className="text-accent1">TBA</span>
                           ) : (
-                            <span className="text-xs">{approved.slice(0, 10)}...{approved.slice(-8)}</span>
+                            <span className="text-xs">{approved.slice(0, 8)}...{approved.slice(-6)}</span>
                           )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {!isRevoked && (
-                              <button
-                                onClick={() => handleRevokeNft(nft.tokenId)}
-                                disabled={revoking === nft.tokenId}
-                                className="px-4 py-2 rounded-full text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-all"
-                              >
-                                {revoking === nft.tokenId ? "Revoking..." : "Revoke"}
-                              </button>
-                            )}
-                            {nft.tbaAddress && !isTba && (
-                              <button
-                                onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
-                                disabled={revoking === nft.tokenId}
-                                className="px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1 hover:bg-accent1Hovered transition-all"
-                              >
-                                {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {!isRevoked && (
+                          <button
+                            onClick={() => handleRevokeNft(nft.tokenId)}
+                            disabled={revoking === nft.tokenId}
+                            className="flex-1 px-4 py-2 rounded-full text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30"
+                          >
+                            {revoking === nft.tokenId ? "Revoking..." : "Revoke"}
+                          </button>
+                        )}
+                        {nft.tbaAddress && !isTba && (
+                          <button
+                            onClick={() => handleApproveNft(nft.tokenId, nft.tbaAddress)}
+                            disabled={revoking === nft.tokenId}
+                            className="flex-1 px-4 py-2 rounded-full text-xs font-bold text-ink bg-accent1"
+                          >
+                            {revoking === nft.tokenId ? "Approving..." : "Approve TBA"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>
