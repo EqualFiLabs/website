@@ -240,7 +240,7 @@ export default function SwapPage() {
             functionName: "previewCommunitySwap",
             args: [BigInt(pick.id), swapIn.address, amountInRaw],
           });
-          amountOutRaw = preview.amountOut ?? preview[0] ?? BigInt(0);
+          amountOutRaw = preview[0] ?? BigInt(0);
           minOutRaw = (amountOutRaw * (BigInt(10000) - slippageBps)) / BigInt(10000);
         } else {
           const preview = await publicClient!.readContract({
@@ -249,7 +249,7 @@ export default function SwapPage() {
             functionName: "previewSwap",
             args: [BigInt(pick.id), swapIn.address, amountInRaw],
           });
-          amountOutRaw = preview.amountOut ?? preview[0] ?? BigInt(0);
+          amountOutRaw = preview[0] ?? BigInt(0);
           minOutRaw = (amountOutRaw * (BigInt(10000) - slippageBps)) / BigInt(10000);
         }
 
@@ -361,7 +361,7 @@ export default function SwapPage() {
                     inputMode="decimal"
                     placeholder="0"
                     value={swapMinOut}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setHasManualMinOut(true);
                       setSwapMinOut(e.target.value);
                     }}
@@ -422,7 +422,7 @@ export default function SwapPage() {
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAuction(e.target.value)}
                     className="w-full rounded-xl border border-surface3 bg-surface1 px-spacing12 py-spacing8 text-sm text-neutral1 focus:outline-none focus:ring-2 focus:ring-accent1"
                   >
-                    {eligibleAuctions.map((auction: Auction) => (
+                    {eligibleAuctions.map((auction: any) => (
                       <option key={`${auction.type}-${auction.id}`} value={auction.id}>
                         Auction {auction.id} — Fee {auction.fee_bps}
                       </option>
@@ -430,7 +430,7 @@ export default function SwapPage() {
                   </select>
 
                   <div className="mt-spacing8 space-y-spacing6 text-xs text-neutral2">
-                    {eligibleAuctions.map((auction: Auction) => (
+                    {eligibleAuctions.map((auction: any) => (
                       <div
                         key={`${auction.type}-${auction.id}-row`}
                         className={[
@@ -473,7 +473,7 @@ export default function SwapPage() {
                     amountIn,
                     amountIn,
                     minOut,
-                    address,
+                    address!,
                   ],
                   value: swapIn.address === "0x0000000000000000000000000000000000000000" ? amountIn : undefined,
                 });
