@@ -80,6 +80,22 @@ export const positionAgentAmmSkillModuleAbi = [
     outputs: [],
   },
   {
+    name: 'setRollPolicy',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'policy',
+        type: 'tuple',
+        components: [
+          { name: 'enabled', type: 'bool' },
+          { name: 'enforcePoolAllowlist', type: 'bool' },
+        ],
+      },
+    ],
+    outputs: [],
+  },
+  {
     name: 'getAuctionPolicy',
     type: 'function',
     stateMutability: 'view',
