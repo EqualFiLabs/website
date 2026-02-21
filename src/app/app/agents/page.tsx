@@ -886,10 +886,10 @@ export default function AgentsPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <ActionButton disabled={isDeploying} onClick={handleDeployTba}>
-                  {isDeploying ? "Deploying…" : "Deploy TBA"}
+                  {isDeploying ? "Deploying…" : "DEPLOY ERC-6551 TBA"}
                 </ActionButton>
                 <ActionButton disabled={isRegisteringAgent} onClick={handleRegisterAgent}>
-                  {isRegisteringAgent ? "Registering…" : "Register Agent"}
+                  {isRegisteringAgent ? "Registering…" : "REGISTER ERC-8004 AGENT"}
                 </ActionButton>
               </div>
             </div>
