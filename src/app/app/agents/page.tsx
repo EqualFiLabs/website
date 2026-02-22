@@ -1179,7 +1179,7 @@ export default function AgentsPage() {
                           addToast({ title: "Uninstall failed", description: err?.message?.slice(0, 100), type: "error" });
                         }
                       }}
-                      disabled={!tbaAddress || !oldAmmSkillModule}
+                      disabled={!tbaAddress}
                     >
                       Uninstall Old Module
                     </ActionButton>
