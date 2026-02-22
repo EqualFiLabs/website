@@ -208,9 +208,46 @@ export default function SwapPage() {
         if (!hasManualMinOut) setSwapMinOut("");
         return;
       }
-      const pick = autoRoute
-        ? eligibleAuctions[0]
-        : eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
+
+      let pick;
+      if (autoRoute) {
+        // Find best price by previewing all eligible auctions
+        const amountInRaw = parseUnits(swapAmount, swapIn.decimals ?? 18);
+        let bestAuction = eligibleAuctions[0];
+        let bestOutput = BigInt(0);
+
+        for (const auction of eligibleAuctions) {
+          try {
+            let amountOutRaw = BigInt(0);
+            if (auction.type === "community") {
+              const preview = await publicClient!.readContract({
+                address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                abi: communityAuctionAbi,
+                functionName: "previewCommunitySwap",
+                args: [BigInt(auction.id), swapIn.address, amountInRaw],
+              });
+              amountOutRaw = preview[0] ?? BigInt(0);
+            } else {
+              const preview = await publicClient!.readContract({
+                address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                abi: ammAuctionAbi,
+                functionName: "previewSwap",
+                args: [BigInt(auction.id), swapIn.address, amountInRaw],
+              });
+              amountOutRaw = preview[0] ?? BigInt(0);
+            }
+            if (amountOutRaw > bestOutput) {
+              bestOutput = amountOutRaw;
+              bestAuction = auction;
+            }
+          } catch (err) {
+            console.log('[DEBUG] Preview failed for auction', auction.id, err);
+          }
+        }
+        pick = bestAuction;
+      } else {
+        pick = eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
+      }
 
       console.log('[DEBUG] Selected auction:', {
         id: pick.id,
