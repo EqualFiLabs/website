@@ -562,6 +562,9 @@ export default function AgentsPage() {
       const policy = {
         enabled: true,
         allowCancel: true,
+        allowFinalize: true,
+        allowAddLiquidity: true,
+        allowCommunityJoin: true,
         enforcePoolAllowlist: false,
         minDuration: 0,
         maxDuration: ttlNumber > 0 ? ttlNumber : 0,
