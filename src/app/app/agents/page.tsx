@@ -1159,35 +1159,6 @@ export default function AgentsPage() {
                   >
                     4. Set Session Policy
                   </button>
-                  <div className="sm:col-span-2">
-                    <button
-                      onClick={async () => {
-                        if (!oldAmmSkillModule || !tbaAddress || !publicClient) return;
-                        try {
-                          const manifest = await publicClient.readContract({
-                            address: oldAmmSkillModule,
-                            abi: positionAgentAmmSkillModuleAbi,
-                            functionName: "executionManifest",
-                          });
-                          const tx = await writeContractAsync({
-                            address: tbaAddress,
-                            abi: erc6900AccountAbi,
-                            functionName: "uninstallExecution",
-                            args: [oldAmmSkillModule, manifest, "0x"],
-                          });
-                          addToast({ title: "Uninstalling old module", type: "pending" });
-                          await publicClient.waitForTransactionReceipt({ hash: tx });
-                          addToast({ title: "Old module uninstalled", type: "success" });
-                        } catch (err: any) {
-                          addToast({ title: "Uninstall failed", description: err?.message?.slice(0, 100), type: "error" });
-                        }
-                      }}
-                      disabled={!tbaAddress}
-                      className="w-full px-4 py-3 rounded-lg bg-red-900/20 hover:bg-red-900/30 text-red-400 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Uninstall Old Module
-                    </button>
-                  </div>
                 </div>
               </div>
               
