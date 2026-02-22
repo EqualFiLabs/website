@@ -33,6 +33,7 @@ export default function SwapPage() {
   const [auctions, setAuctions] = useState<any[]>([]);
   const [onchainAuctions, setOnchainAuctions] = useState<any[]>([]);
   const [selectedAuction, setSelectedAuction] = useState<string>("");
+  const [bestAuction, setBestAuction] = useState<any>(null);
   const [autoRoute, setAutoRoute] = useState<boolean>(true);
   const [expectedOut, setExpectedOut] = useState<string>("");
 
@@ -245,6 +246,7 @@ export default function SwapPage() {
           }
         }
         pick = bestAuction;
+        setBestAuction(bestAuction);
       } else {
         pick = eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
       }
@@ -360,7 +362,7 @@ export default function SwapPage() {
                         setHasManualSelection(true);
                         setSwapIn(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[0]);
                       }}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      className="absolute inset-0 opacity-0 cursor-pointer [&>option]:text-black [&>option]:bg-white"
                     >
                       {tokens.map((token: TokenInfo) => (
                         <option key={token.symbol} value={token.symbol}>
@@ -421,7 +423,7 @@ export default function SwapPage() {
                         setHasManualSelection(true);
                         setSwapOut(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[1]);
                       }}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      className="absolute inset-0 opacity-0 cursor-pointer [&>option]:text-black [&>option]:bg-white"
                     >
                       {tokens.map((token: TokenInfo) => (
                         <option key={token.symbol} value={token.symbol}>
@@ -498,7 +500,7 @@ export default function SwapPage() {
                 const minOut = parseUnits((swapMinOut || expectedOut || "0"), swapOut.decimals);
                 if (!eligibleAuctions.length) return;
                 const pick = autoRoute
-                  ? eligibleAuctions[0]
+                  ? (bestAuction || eligibleAuctions[0])
                   : eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
                 const isCommunity = pick.type === "community";
                 writeContract({
