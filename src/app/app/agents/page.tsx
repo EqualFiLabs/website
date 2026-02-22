@@ -1157,7 +1157,7 @@ export default function AgentsPage() {
                     4. Set Session Policy
                   </button>
                   <div className="sm:col-span-2">
-                    <ActionButton
+                    <button
                       onClick={async () => {
                         if (!oldAmmSkillModule || !tbaAddress || !publicClient) return;
                         try {
@@ -1180,9 +1180,10 @@ export default function AgentsPage() {
                         }
                       }}
                       disabled={!tbaAddress}
+                      className="w-full px-4 py-3 rounded-lg bg-red-900/20 hover:bg-red-900/30 text-red-400 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Uninstall Old Module
-                    </ActionButton>
+                    </button>
                   </div>
                 </div>
               </div>
