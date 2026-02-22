@@ -24,6 +24,10 @@ const EXECUTE_SELECTORS = ["0xb61d27f6", "0x34fcd5be", "0x51945447"];
 const AMM_ACTION_SELECTORS = [
   "0xed5b5ef5", // createAuction((uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint16,uint8))
   "0x96b5a755", // cancelAuction(uint256)
+  "0xe8083863", // finalizeAuction(uint256)
+  "0x422f1043", // addLiquidity(uint256,uint256,uint256)
+  "0x4b43f282", // joinCommunityAuction(uint256,uint256,uint256)
+  "0xbc3b2542", // finalizeCommunityAuction(uint256)
   "0xc88d8213", // rollYieldToPosition(uint256,uint256)
 ];
 
