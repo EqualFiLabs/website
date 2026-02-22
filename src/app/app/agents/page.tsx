@@ -71,6 +71,7 @@ export default function AgentsPage() {
   const positionNFTAddress = (process.env.NEXT_PUBLIC_POSITION_NFT || "").trim() as `0x${string}` | "";
   const sessionKeyModule = (process.env.NEXT_PUBLIC_SESSION_KEY_MODULE || "").trim() as `0x${string}` | "";
   const ammSkillModule = (process.env.NEXT_PUBLIC_AMM_SKILL_MODULE || "").trim() as `0x${string}` | "";
+  const oldAmmSkillModule = (process.env.NEXT_PUBLIC_OLD_AMM_SKILL_MODULE || "").trim() as `0x${string}` | "";
   const identityRegistry = (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || "").trim() as `0x${string}` | "";
   const chainId = (process.env.NEXT_PUBLIC_CHAIN_ID || "").toString();
 
@@ -1155,6 +1156,34 @@ export default function AgentsPage() {
                   >
                     4. Set Session Policy
                   </button>
+                  <div className="sm:col-span-2">
+                    <ActionButton
+                      onClick={async () => {
+                        if (!oldAmmSkillModule || !tbaAddress || !publicClient) return;
+                        try {
+                          const manifest = await publicClient.readContract({
+                            address: oldAmmSkillModule,
+                            abi: positionAgentAmmSkillModuleAbi,
+                            functionName: "executionManifest",
+                          });
+                          const tx = await writeContractAsync({
+                            address: tbaAddress,
+                            abi: erc6900AccountAbi,
+                            functionName: "uninstallExecution",
+                            args: [oldAmmSkillModule, manifest, "0x"],
+                          });
+                          addToast({ title: "Uninstalling old module", type: "pending" });
+                          await publicClient.waitForTransactionReceipt({ hash: tx });
+                          addToast({ title: "Old module uninstalled", type: "success" });
+                        } catch (err: any) {
+                          addToast({ title: "Uninstall failed", description: err?.message?.slice(0, 100), type: "error" });
+                        }
+                      }}
+                      disabled={!tbaAddress || !oldAmmSkillModule}
+                    >
+                      Uninstall Old Module
+                    </ActionButton>
+                  </div>
                 </div>
               </div>
               
