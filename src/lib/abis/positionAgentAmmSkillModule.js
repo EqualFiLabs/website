@@ -65,6 +65,9 @@ export const positionAgentAmmSkillModuleAbi = [
         components: [
           { name: 'enabled', type: 'bool' },
           { name: 'allowCancel', type: 'bool' },
+          { name: 'allowFinalize', type: 'bool' },
+          { name: 'allowAddLiquidity', type: 'bool' },
+          { name: 'allowCommunityJoin', type: 'bool' },
           { name: 'enforcePoolAllowlist', type: 'bool' },
           { name: 'minDuration', type: 'uint64' },
           { name: 'maxDuration', type: 'uint64' },
