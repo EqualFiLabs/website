@@ -1,0 +1,38 @@
+export const networks = [
+  {
+    key: 'arbitrum-sepolia',
+    chainId: 421614,
+    rpcEnv: 'RPC_URL_ARBITRUM_SEPOLIA',
+    diamondEnv: 'DIAMOND_ADDRESS_ARBITRUM_SEPOLIA',
+    startBlockEnv: 'START_BLOCK_ARBITRUM_SEPOLIA',
+    defaultStartBlock: 0,
+    confirmations: 3,
+  },
+  {
+    key: 'base-sepolia',
+    chainId: 84532,
+    rpcEnv: 'RPC_URL_BASE_SEPOLIA',
+    diamondEnv: 'DIAMOND_ADDRESS_BASE_SEPOLIA',
+    startBlockEnv: 'START_BLOCK_BASE_SEPOLIA',
+    defaultStartBlock: 0,
+    confirmations: 3,
+  },
+  {
+    key: 'ethereum-sepolia',
+    chainId: 11155111,
+    rpcEnv: 'RPC_URL_ETHEREUM_SEPOLIA',
+    diamondEnv: 'DIAMOND_ADDRESS_ETHEREUM_SEPOLIA',
+    startBlockEnv: 'START_BLOCK_ETHEREUM_SEPOLIA',
+    defaultStartBlock: 0,
+    confirmations: 3,
+  },
+  {
+    key: 'anvil',
+    chainId: 31337,
+    rpcEnv: 'RPC_URL_ANVIL',
+    diamondEnv: 'DIAMOND_ADDRESS_ANVIL',
+    startBlockEnv: 'START_BLOCK_ANVIL',
+    defaultStartBlock: 0,
+    confirmations: 0,
+  },
+]

@@ -1,21 +1,84 @@
 @import "tailwindcss";
 
 :root {
-  --background: #000000;
+  --background: #0b1021;
   --foreground: #ffffff;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --font-sans: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+
+  --color-surface1: #0b1021;
+  --color-surface2: #141a2e;
+  --color-surface2Hovered: #1a2238;
+  --color-surface3: #1e2640;
+
+  --color-neutral1: #ffffff;
+  --color-neutral2: #8b95a8;
+  --color-neutral3: #5c6478;
+
+  --color-accent1: #14f195;
+  --color-accent1Hovered: #12d986;
+  --color-accent2: #c4f1f9;
+
+  --color-statusCritical: #ff5f52;
+  --color-statusCritical2: rgba(255, 95, 82, 0.125);
+
+  --color-ink: #0b1021;
+  --color-mint: #14f195;
+  --color-foam: #c4f1f9;
+
+  --spacing-spacing1: 1px;
+  --spacing-spacing2: 2px;
+  --spacing-spacing4: 4px;
+  --spacing-spacing6: 6px;
+  --spacing-spacing8: 8px;
+  --spacing-spacing12: 12px;
+  --spacing-spacing16: 16px;
+  --spacing-spacing20: 20px;
+  --spacing-spacing24: 24px;
+  --spacing-spacing36: 36px;
+  --spacing-spacing40: 40px;
+  --spacing-spacing48: 48px;
+  --spacing-spacing60: 60px;
+
+  --shadow-card: 0 16px 50px rgba(8, 17, 40, 0.35);
+  --max-width-card: 480px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  -webkit-font-smoothing: none; /* Sharper pixels */
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.cancel-auction-btn:hover:not(:disabled) {
+  border-color: #ff5f52;
+  color: #ff5f52;
+  background: rgba(255, 95, 82, 0.12);
+  filter: brightness(1.02);
+  box-shadow: 0 0 0 1px rgba(255, 95, 82, 0.25);
+}
+
+.card-glow:hover {
+  border-color: rgba(20, 241, 149, 0.6);
+  box-shadow:
+    0 0 40px rgba(20, 241, 149, 0.45),
+    0 12px 24px rgba(20, 241, 149, 0.25);
 }
 
 /* Brutalist Grids */
@@ -47,8 +110,7 @@ body {
 
 /* Interactive Elements */
 a:hover {
-  background-color: #fff;
-  color: #000;
+  color: #ffffff;
 }
 
 /* Blog typography */

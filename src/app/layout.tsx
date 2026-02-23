@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
@@ -21,9 +22,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`dark ${jetbrainsMono.variable}`}>
-      <body className="bg-black text-gray-100 antialiased selection:bg-white/20">
-        {/* Layout wrapper removed - each page handles its own structure for maximum brutalism */}
-        {children}
+      <body className="grid-bg bg-surface1 text-neutral1 antialiased selection:bg-white/20">
+        <Providers>
+          {/* Layout wrapper removed - each page handles its own structure for maximum brutalism */}
+          {children}
+        </Providers>
       </body>
     </html>
   );
