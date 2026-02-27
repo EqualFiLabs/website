@@ -131,26 +131,7 @@ We're not the only team thinking about this problem. Other approaches include:
 
 **Trusted execution environments:** The agent runs in a TEE with restricted capabilities. Strong isolation but introduces hardware trust assumptions.
 
-**Intent-based systems:** The agent expresses intents, a solver executes them. Shifts trust to the solver network.
-
 Each approach has different trust assumptions and capability tradeoffs. We think onchain policy enforcement with modular smart accounts is a good balance of safety and capability, but reasonable people can disagree.
-
----
-
-## Implementation Status
-
-Agent Wallet Core is implemented and tested. The codebase includes:
-
-- Core account contracts (`ERC721BoundMSCA`, `ResolverBoundMSCA`)
-- Four validation modules (Owner, SessionKey, SIWA, ERC8128AA)
-- Policy registry for session management
-- ERC-8004 identity adapter
-- ERC-6492 counterfactual signature support
-- Comprehensive test suite including property-based fuzzing
-
-The contracts are being deployed to Arbitrum Sepolia for public testing. We'll share the deployment addresses and a demo application when ready.
-
-The code will be open source. We want this to be infrastructure that others can build on, audit, and improve.
 
 ---
 

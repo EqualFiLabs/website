@@ -1,0 +1,69 @@
+export const optionsFacetAbi = [
+  {
+    type: "function",
+    name: "createOptionSeries",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "params",
+        type: "tuple",
+        components: [
+          { name: "positionId", type: "uint256" },
+          { name: "underlyingPoolId", type: "uint256" },
+          { name: "strikePoolId", type: "uint256" },
+          { name: "strikePrice", type: "uint256" },
+          { name: "expiry", type: "uint64" },
+          { name: "totalSize", type: "uint256" },
+          { name: "isCall", type: "bool" },
+          { name: "isAmerican", type: "bool" },
+          { name: "useCustomFees", type: "bool" },
+          { name: "createFeeBps", type: "uint16" },
+          { name: "exerciseFeeBps", type: "uint16" },
+          { name: "reclaimFeeBps", type: "uint16" },
+        ],
+      },
+    ],
+    outputs: [{ name: "seriesId", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "exerciseOptions",
+    stateMutability: "payable",
+    inputs: [
+      { name: "seriesId", type: "uint256" },
+      { name: "amount", type: "uint256" },
+      { name: "recipient", type: "address" },
+      { name: "maxPayment", type: "uint256" },
+      { name: "minReceived", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "previewExercisePayment",
+    stateMutability: "view",
+    inputs: [
+      { name: "seriesId", type: "uint256" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "payment", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "reclaimOptions",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "seriesId", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "burnReclaimedOptionsClaims",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "holder", type: "address" },
+      { name: "seriesId", type: "uint256" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+] as const;
