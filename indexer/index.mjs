@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url'
 import { createPublicClient, decodeEventLog, http, parseAbiItem } from 'viem'
 import pkg from 'pg'
 import { networks as baseNetworks } from './config.mjs'
+import { FUTURES_EVENTS, OPTION_EVENTS } from './lib/derivatives-events.mjs'
+import { handleFuturesLog, handleOptionLog } from './lib/derivatives.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -146,14 +148,28 @@ const indexNetwork = async (db, net) => {
 
   console.log(`[${net.key}] indexing ${fromBlock} → ${toBlock}`)
 
-  const logs = await client.getLogs({
-    address: net.diamondAddress,
-    events: AUCTION_EVENTS,
-    fromBlock,
-    toBlock,
-  })
+  const [auctionLogs, optionLogs, futuresLogs] = await Promise.all([
+    client.getLogs({
+      address: net.diamondAddress,
+      events: AUCTION_EVENTS,
+      fromBlock,
+      toBlock,
+    }),
+    client.getLogs({
+      address: net.diamondAddress,
+      events: OPTION_EVENTS,
+      fromBlock,
+      toBlock,
+    }),
+    client.getLogs({
+      address: net.diamondAddress,
+      events: FUTURES_EVENTS,
+      fromBlock,
+      toBlock,
+    }),
+  ])
 
-  for (const log of logs) {
+  for (const log of auctionLogs) {
     try {
       const decoded = decodeEventLog({ abi: AUCTION_EVENTS, data: log.data, topics: log.topics })
       const eventName = decoded.eventName
@@ -230,8 +246,28 @@ const indexNetwork = async (db, net) => {
     }
   }
 
+  for (const log of optionLogs) {
+    try {
+      const decoded = decodeEventLog({ abi: OPTION_EVENTS, data: log.data, topics: log.topics })
+      await handleOptionLog(db, net.chainId, decoded, log)
+    } catch (err) {
+      console.warn(`[${net.key}] option log decode failed`, err)
+    }
+  }
+
+  for (const log of futuresLogs) {
+    try {
+      const decoded = decodeEventLog({ abi: FUTURES_EVENTS, data: log.data, topics: log.topics })
+      await handleFuturesLog(db, net.chainId, decoded, log)
+    } catch (err) {
+      console.warn(`[${net.key}] futures log decode failed`, err)
+    }
+  }
+
   await setLastBlock(db, net.chainId, Number(toBlock))
-  console.log(`[${net.key}] indexed ${logs.length} logs, saved last_block=${toBlock}`)
+  console.log(
+    `[${net.key}] indexed auctions=${auctionLogs.length} options=${optionLogs.length} futures=${futuresLogs.length}, saved last_block=${toBlock}`,
+  )
 }
 
 const main = async () => {

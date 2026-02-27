@@ -433,6 +433,28 @@ Fetch auction data from database.
 }
 ```
 
+### GET /api/derivatives/options
+
+Fetch indexed options series data.
+
+**Query Parameters:**
+- `chainId` (optional): Filter by chain ID
+- `makerPositionId` (optional): Filter by Position NFT ID
+- `scope` (optional): `active` (default) or `all`
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Results per page (default: 50, max: 100)
+
+### GET /api/derivatives/futures
+
+Fetch indexed futures series data.
+
+**Query Parameters:**
+- `chainId` (optional): Filter by chain ID
+- `makerPositionId` (optional): Filter by Position NFT ID
+- `scope` (optional): `active` (default) or `all`
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Results per page (default: 50, max: 100)
+
 ## Contributing
 
 See the main project README for contribution guidelines.
