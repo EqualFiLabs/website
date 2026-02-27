@@ -35,7 +35,15 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/credit" className="h-full md:col-span-2 md:col-start-2">
+        <Link href="/app/derivatives" className="h-full md:col-span-2">
+          <Card>
+            <SectionHeader title="DERIVATIVES" subtitle="Options + futures" />
+            <p className="text-xs font-mono text-gray-400 mt-4">
+              Create, settle, reclaim, and burn claims for options and futures series.
+            </p>
+          </Card>
+        </Link>
+        <Link href="/app/credit" className="h-full md:col-span-2 md:col-start-3">
           <Card>
             <SectionHeader title="CREDIT" subtitle="Borrowing console" />
             <p className="text-xs font-mono text-gray-400 mt-4">
@@ -43,7 +51,7 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/index" className="h-full md:col-span-2 md:col-start-4">
+        <Link href="/app/index" className="h-full md:col-span-2 md:col-start-5">
           <Card>
             <SectionHeader title="INDEX" subtitle="Mint + burn" />
             <p className="text-xs font-mono text-gray-400 mt-4">

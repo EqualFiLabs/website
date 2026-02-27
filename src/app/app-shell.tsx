@@ -40,6 +40,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <Link href="/app/auctions" className="hover:text-white">
               Auctions
             </Link>
+            <Link href="/app/derivatives" className="hover:text-white">
+              Derivatives
+            </Link>
             <Link href="/app/credit" className="hover:text-white">
               Credit
             </Link>
@@ -72,6 +75,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             </Link>
             <Link href="/app/auctions" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Auctions
+            </Link>
+            <Link href="/app/derivatives" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
+              Derivatives
             </Link>
             <Link href="/app/credit" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Credit
