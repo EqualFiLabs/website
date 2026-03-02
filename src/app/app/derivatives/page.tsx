@@ -24,7 +24,17 @@ import useActiveChainId from "@/lib/hooks/useActiveChainId";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import useBufferedWriteContract from "@/lib/hooks/useBufferedWriteContract";
 import useExplorerUrl from "@/lib/hooks/useExplorerUrl";
-import { asString, formatUnixTimestamp, parseBps, parseOptionalUint, parseRequiredUint } from "@/lib/derivatives/ui";
+import usePoolsConfig from "@/lib/hooks/usePoolsConfig";
+import usePositionNFTs from "@/lib/hooks/usePositionNFTs";
+import {
+  asString,
+  buildPoolIdOptions,
+  buildPositionIdOptions,
+  formatUnixTimestamp,
+  parseBps,
+  parseOptionalUint,
+  parseRequiredUint,
+} from "@/lib/derivatives/ui";
 
 type Scope = "active" | "all";
 
@@ -39,6 +49,9 @@ type OptionApiRow = {
   total_size: string | null;
   remaining_size: string | null;
   collateral_locked: string | null;
+  create_fee_bps: number | string | null;
+  exercise_fee_bps: number | string | null;
+  reclaim_fee_bps: number | string | null;
   is_call: boolean | null;
   is_american: boolean | null;
   reclaimed: boolean | null;
@@ -57,6 +70,9 @@ type FuturesApiRow = {
   total_size: string | null;
   remaining_size: string | null;
   underlying_locked: string | null;
+  create_fee_bps: number | string | null;
+  exercise_fee_bps: number | string | null;
+  reclaim_fee_bps: number | string | null;
   is_european: boolean | null;
   reclaimed: boolean | null;
   updated_at: string;
@@ -140,6 +156,8 @@ export default function DerivativesPage() {
   const { address, isConnected } = useAccount();
   const publicClient = useActivePublicClient();
   const chainId = useActiveChainId();
+  const poolsConfig = usePoolsConfig();
+  const { nfts } = usePositionNFTs();
   const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
   const { buildTxUrl } = useExplorerUrl();
@@ -183,6 +201,9 @@ export default function DerivativesPage() {
   const [optionTokenBalance, setOptionTokenBalance] = useState<string>("-");
   const [futuresTokenBalance, setFuturesTokenBalance] = useState<string>("-");
 
+  const positionIdOptions = useMemo(() => buildPositionIdOptions(nfts), [nfts]);
+  const poolIdOptions = useMemo(() => buildPoolIdOptions(poolsConfig?.pools), [poolsConfig?.pools]);
+
   useEffect(() => {
     if (!address) {
       return;
@@ -198,6 +219,33 @@ export default function DerivativesPage() {
       holder: prev.holder || address,
     }));
   }, [address]);
+
+  useEffect(() => {
+    if (positionIdOptions.length === 0) {
+      return;
+    }
+    const defaultPositionId = positionIdOptions[0].value;
+    setOptionForm((prev) => (prev.positionId ? prev : { ...prev, positionId: defaultPositionId }));
+    setFuturesForm((prev) => (prev.positionId ? prev : { ...prev, positionId: defaultPositionId }));
+  }, [positionIdOptions]);
+
+  useEffect(() => {
+    if (poolIdOptions.length === 0) {
+      return;
+    }
+    const firstPoolId = poolIdOptions[0].value;
+    const secondPoolId = poolIdOptions[1]?.value ?? firstPoolId;
+    setOptionForm((prev) => ({
+      ...prev,
+      underlyingPoolId: prev.underlyingPoolId || firstPoolId,
+      strikePoolId: prev.strikePoolId || secondPoolId,
+    }));
+    setFuturesForm((prev) => ({
+      ...prev,
+      underlyingPoolId: prev.underlyingPoolId || firstPoolId,
+      quotePoolId: prev.quotePoolId || secondPoolId,
+    }));
+  }, [poolIdOptions]);
 
   const loadSeries = useCallback(async () => {
     setLoadingSeries(true);
@@ -662,7 +710,7 @@ export default function DerivativesPage() {
         <div className="mt-4 grid gap-3 text-xs font-mono text-gray-300 md:grid-cols-2">
           <p>Operator flows: {derivativesV1Capabilities.operatorFlows ? "enabled" : "excluded"}</p>
           <p>Custom fee selection: {derivativesV1Capabilities.customFees ? "available" : "disabled"}</p>
-          <p className="md:col-span-2">Series discovery is indexed. Fee details are surfaced via create forms and on-chain series reads.</p>
+          <p className="md:col-span-2">Series discovery and fee bps are indexed. On-chain reads are still available for selected series verification.</p>
         </div>
         <StatusLine text={readyStatus} />
       </Card>
@@ -702,6 +750,10 @@ export default function DerivativesPage() {
                   rem={asString(row.remaining_size) || "-"} | collat={asString(row.collateral_locked) || "-"}
                 </p>
                 <p>
+                  fees c/e/r={asString(row.create_fee_bps) || "-"}/{asString(row.exercise_fee_bps) || "-"}/
+                  {asString(row.reclaim_fee_bps) || "-"}
+                </p>
+                <p>
                   {row.is_call ? "CALL" : "PUT"} | {row.is_american ? "AMERICAN" : "EUROPEAN"} |{" "}
                   {row.reclaimed ? "RECLAIMED" : "OPEN"}
                 </p>
@@ -722,6 +774,10 @@ export default function DerivativesPage() {
                   rem={asString(row.remaining_size) || "-"} | locked={asString(row.underlying_locked) || "-"}
                 </p>
                 <p>
+                  fees c/s/r={asString(row.create_fee_bps) || "-"}/{asString(row.exercise_fee_bps) || "-"}/
+                  {asString(row.reclaim_fee_bps) || "-"}
+                </p>
+                <p>
                   {row.is_european ? "EUROPEAN" : "AMERICAN-STYLE"} | {row.reclaimed ? "RECLAIMED" : "OPEN"}
                 </p>
                 <p>expiry {formatUnixTimestamp(row.expiry)}</p>
@@ -736,19 +792,34 @@ export default function DerivativesPage() {
           <SectionHeader title="CREATE OPTION" subtitle="Mint option claims to maker" />
           <div className="mt-4 grid gap-3">
             <Field label="Position Id">
-              <Input value={optionForm.positionId} onChange={(event) => setOptionForm((prev) => ({ ...prev, positionId: event.target.value }))} />
+              <Select value={optionForm.positionId} onChange={(event) => setOptionForm((prev) => ({ ...prev, positionId: event.target.value }))}>
+                <option value="">{positionIdOptions.length ? "Select Position NFT..." : "No Position NFTs found"}</option>
+                {positionIdOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Underlying Pool Id">
-              <Input
-                value={optionForm.underlyingPoolId}
-                onChange={(event) => setOptionForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}
-              />
+              <Select value={optionForm.underlyingPoolId} onChange={(event) => setOptionForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}>
+                <option value="">{poolIdOptions.length ? "Select Underlying Pool..." : "No pools configured"}</option>
+                {poolIdOptions.map((option) => (
+                  <option key={`opt-underlying-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Strike Pool Id">
-              <Input
-                value={optionForm.strikePoolId}
-                onChange={(event) => setOptionForm((prev) => ({ ...prev, strikePoolId: event.target.value }))}
-              />
+              <Select value={optionForm.strikePoolId} onChange={(event) => setOptionForm((prev) => ({ ...prev, strikePoolId: event.target.value }))}>
+                <option value="">{poolIdOptions.length ? "Select Strike Pool..." : "No pools configured"}</option>
+                {poolIdOptions.map((option) => (
+                  <option key={`opt-strike-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Strike Price">
               <Input value={optionForm.strikePrice} onChange={(event) => setOptionForm((prev) => ({ ...prev, strikePrice: event.target.value }))} />
@@ -810,16 +881,34 @@ export default function DerivativesPage() {
           <SectionHeader title="CREATE FUTURES" subtitle="Mint futures claims to maker" />
           <div className="mt-4 grid gap-3">
             <Field label="Position Id">
-              <Input value={futuresForm.positionId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, positionId: event.target.value }))} />
+              <Select value={futuresForm.positionId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, positionId: event.target.value }))}>
+                <option value="">{positionIdOptions.length ? "Select Position NFT..." : "No Position NFTs found"}</option>
+                {positionIdOptions.map((option) => (
+                  <option key={`fut-pos-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Underlying Pool Id">
-              <Input
-                value={futuresForm.underlyingPoolId}
-                onChange={(event) => setFuturesForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}
-              />
+              <Select value={futuresForm.underlyingPoolId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}>
+                <option value="">{poolIdOptions.length ? "Select Underlying Pool..." : "No pools configured"}</option>
+                {poolIdOptions.map((option) => (
+                  <option key={`fut-underlying-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Quote Pool Id">
-              <Input value={futuresForm.quotePoolId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, quotePoolId: event.target.value }))} />
+              <Select value={futuresForm.quotePoolId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, quotePoolId: event.target.value }))}>
+                <option value="">{poolIdOptions.length ? "Select Quote Pool..." : "No pools configured"}</option>
+                {poolIdOptions.map((option) => (
+                  <option key={`fut-quote-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label="Forward Price">
               <Input value={futuresForm.forwardPrice} onChange={(event) => setFuturesForm((prev) => ({ ...prev, forwardPrice: event.target.value }))} />

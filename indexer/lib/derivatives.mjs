@@ -68,9 +68,10 @@ const upsertOptionSeriesOnCreate = async (db, chainId, payload) => {
     INSERT INTO option_series (
       chain_id, series_id, maker_position_key, maker_position_id, underlying_pool_id, strike_pool_id,
       underlying_asset, strike_asset, strike_price, expiry, total_size, remaining_size, collateral_locked,
+      create_fee_bps, exercise_fee_bps, reclaim_fee_bps,
       is_call, is_american, reclaimed, created_block, created_tx_hash, raw, updated_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW()
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW()
     )
     ON CONFLICT (chain_id, series_id)
     DO UPDATE SET
@@ -85,6 +86,9 @@ const upsertOptionSeriesOnCreate = async (db, chainId, payload) => {
       total_size = COALESCE(EXCLUDED.total_size, option_series.total_size),
       remaining_size = COALESCE(option_series.remaining_size, EXCLUDED.remaining_size),
       collateral_locked = COALESCE(option_series.collateral_locked, EXCLUDED.collateral_locked),
+      create_fee_bps = COALESCE(EXCLUDED.create_fee_bps, option_series.create_fee_bps),
+      exercise_fee_bps = COALESCE(EXCLUDED.exercise_fee_bps, option_series.exercise_fee_bps),
+      reclaim_fee_bps = COALESCE(EXCLUDED.reclaim_fee_bps, option_series.reclaim_fee_bps),
       is_call = COALESCE(EXCLUDED.is_call, option_series.is_call),
       is_american = COALESCE(EXCLUDED.is_american, option_series.is_american),
       reclaimed = option_series.reclaimed OR EXCLUDED.reclaimed,
@@ -107,6 +111,9 @@ const upsertOptionSeriesOnCreate = async (db, chainId, payload) => {
     payload.totalSize,
     payload.totalSize,
     payload.collateralLocked,
+    payload.createFeeBps,
+    payload.exerciseFeeBps,
+    payload.reclaimFeeBps,
     payload.isCall,
     payload.isAmerican,
     false,
@@ -176,9 +183,10 @@ const upsertFuturesSeriesOnCreate = async (db, chainId, payload) => {
     INSERT INTO futures_series (
       chain_id, series_id, maker_position_key, maker_position_id, underlying_pool_id, quote_pool_id,
       underlying_asset, quote_asset, forward_price, expiry, grace_unlock_time, total_size, remaining_size,
-      underlying_locked, is_european, reclaimed, created_block, created_tx_hash, raw, updated_at
+      underlying_locked, create_fee_bps, exercise_fee_bps, reclaim_fee_bps,
+      is_european, reclaimed, created_block, created_tx_hash, raw, updated_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW()
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW()
     )
     ON CONFLICT (chain_id, series_id)
     DO UPDATE SET
@@ -194,6 +202,9 @@ const upsertFuturesSeriesOnCreate = async (db, chainId, payload) => {
       total_size = COALESCE(EXCLUDED.total_size, futures_series.total_size),
       remaining_size = COALESCE(futures_series.remaining_size, EXCLUDED.remaining_size),
       underlying_locked = COALESCE(futures_series.underlying_locked, EXCLUDED.underlying_locked),
+      create_fee_bps = COALESCE(EXCLUDED.create_fee_bps, futures_series.create_fee_bps),
+      exercise_fee_bps = COALESCE(EXCLUDED.exercise_fee_bps, futures_series.exercise_fee_bps),
+      reclaim_fee_bps = COALESCE(EXCLUDED.reclaim_fee_bps, futures_series.reclaim_fee_bps),
       is_european = COALESCE(EXCLUDED.is_european, futures_series.is_european),
       reclaimed = futures_series.reclaimed OR EXCLUDED.reclaimed,
       created_block = COALESCE(futures_series.created_block, EXCLUDED.created_block),
@@ -216,6 +227,9 @@ const upsertFuturesSeriesOnCreate = async (db, chainId, payload) => {
     payload.totalSize,
     payload.totalSize,
     payload.underlyingLocked,
+    payload.createFeeBps,
+    payload.exerciseFeeBps,
+    payload.reclaimFeeBps,
     payload.isEuropean,
     false,
     payload.blockNumber,
@@ -277,7 +291,7 @@ const upsertFuturesSeriesOnClaimsBurn = async (db, chainId, payload) => {
   await db.query(sql, [chainId, payload.seriesId, payload.amount])
 }
 
-export const handleOptionLog = async (db, chainId, decoded, log) => {
+export const handleOptionLog = async (db, chainId, decoded, log, opts = {}) => {
   const eventName = decoded.eventName
   const args = decoded.args || {}
   const safeArgs = toSafeArgs(args)
@@ -290,6 +304,7 @@ export const handleOptionLog = async (db, chainId, decoded, log) => {
   }
 
   if (eventName === 'SeriesCreated') {
+    const resolvedFees = opts.resolveOptionSeriesFees ? await opts.resolveOptionSeriesFees(base.seriesId, log) : null
     await upsertOptionSeriesOnCreate(db, chainId, {
       ...base,
       makerPositionKey: toLowerOrNull(args.makerPositionKey),
@@ -302,6 +317,9 @@ export const handleOptionLog = async (db, chainId, decoded, log) => {
       expiry: toNumberOrNull(args.expiry),
       totalSize: toStringOrNull(args.totalSize),
       collateralLocked: toStringOrNull(args.collateralLocked),
+      createFeeBps: toNumberOrNull(resolvedFees?.createFeeBps),
+      exerciseFeeBps: toNumberOrNull(resolvedFees?.exerciseFeeBps),
+      reclaimFeeBps: toNumberOrNull(resolvedFees?.reclaimFeeBps),
       isCall: Boolean(args.isCall),
       isAmerican: Boolean(args.isAmerican),
     })
@@ -364,7 +382,7 @@ export const handleOptionLog = async (db, chainId, decoded, log) => {
   return false
 }
 
-export const handleFuturesLog = async (db, chainId, decoded, log) => {
+export const handleFuturesLog = async (db, chainId, decoded, log, opts = {}) => {
   const eventName = decoded.eventName
   const args = decoded.args || {}
   const safeArgs = toSafeArgs(args)
@@ -377,6 +395,7 @@ export const handleFuturesLog = async (db, chainId, decoded, log) => {
   }
 
   if (eventName === 'SeriesCreated') {
+    const resolvedFees = opts.resolveFuturesSeriesFees ? await opts.resolveFuturesSeriesFees(base.seriesId, log) : null
     await upsertFuturesSeriesOnCreate(db, chainId, {
       ...base,
       makerPositionKey: toLowerOrNull(args.makerPositionKey),
@@ -390,6 +409,9 @@ export const handleFuturesLog = async (db, chainId, decoded, log) => {
       graceUnlockTime: toNumberOrNull(args.graceUnlockTime),
       totalSize: toStringOrNull(args.totalSize),
       underlyingLocked: toStringOrNull(args.underlyingLocked),
+      createFeeBps: toNumberOrNull(resolvedFees?.createFeeBps),
+      exerciseFeeBps: toNumberOrNull(resolvedFees?.exerciseFeeBps),
+      reclaimFeeBps: toNumberOrNull(resolvedFees?.reclaimFeeBps),
       isEuropean: Boolean(args.isEuropean),
     })
     await insertFuturesEvent(db, chainId, { ...base, eventName })

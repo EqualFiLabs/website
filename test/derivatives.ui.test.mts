@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildPoolIdOptions,
+  buildPositionIdOptions,
   asString,
   formatUnixTimestamp,
   parseBps,
@@ -41,4 +43,34 @@ test("formatUnixTimestamp and asString normalize display values", () => {
   assert.equal(asString(123), "123");
   assert.equal(asString(4n), "4");
   assert.equal(asString(null), "");
+});
+
+test("buildPoolIdOptions normalizes and sorts pools from config", () => {
+  const options = buildPoolIdOptions([
+    { id: "WBTC", pid: 3, ticker: "WBTC", tokenName: "Wrapped Bitcoin" },
+    { id: "USDC", pid: "5", ticker: "USDC", tokenName: "USD Coin" },
+    { id: "WETH", pid: 4, ticker: "WETH", tokenName: "Wrapped Ethereum" },
+    { id: "WETH_DUP", pid: 4, ticker: "WETH", tokenName: "Duplicate" },
+  ]);
+
+  assert.deepEqual(options, [
+    { value: "3", label: "WBTC (pid 3) - Wrapped Bitcoin" },
+    { value: "4", label: "WETH (pid 4) - Wrapped Ethereum" },
+    { value: "5", label: "USDC (pid 5) - USD Coin" },
+  ]);
+});
+
+test("buildPositionIdOptions dedupes and sorts nft token ids", () => {
+  const options = buildPositionIdOptions([
+    { tokenId: "12", poolName: "USDC" },
+    { tokenId: "2", poolName: "WETH" },
+    { tokenId: "12", poolName: "USDC duplicate" },
+    { tokenId: 7, poolName: "WBTC" },
+  ]);
+
+  assert.deepEqual(options, [
+    { value: "2", label: "#2 (WETH)" },
+    { value: "7", label: "#7 (WBTC)" },
+    { value: "12", label: "#12 (USDC)" },
+  ]);
 });

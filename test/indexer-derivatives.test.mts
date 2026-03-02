@@ -54,6 +54,46 @@ test("handleOptionLog SeriesCreated upserts series and appends event", async () 
   assert.equal(calls[1].values[2], "SeriesCreated");
 });
 
+test("handleOptionLog SeriesCreated persists resolved fee bps", async () => {
+  const { calls, db } = makeMockDb();
+  await handleOptionLog(
+    db as never,
+    31337,
+    {
+      eventName: "SeriesCreated",
+      args: {
+        seriesId: 8n,
+        makerPositionKey: "0x1234000000000000000000000000000000000000000000000000000000000000",
+        makerPositionId: 11n,
+        underlyingPoolId: 1n,
+        strikePoolId: 5n,
+        underlyingAsset: "0x0000000000000000000000000000000000000001",
+        strikeAsset: "0x0000000000000000000000000000000000000002",
+        strikePrice: 2500n,
+        expiry: 1700000000n,
+        totalSize: 42n,
+        collateralLocked: 42n,
+        isCall: true,
+        isAmerican: false,
+      },
+    },
+    {
+      blockNumber: 124n,
+      transactionHash: "0xtx-option-fees",
+      logIndex: 3,
+    } as never,
+    {
+      resolveOptionSeriesFees: async () => ({ createFeeBps: 77, exerciseFeeBps: 88, reclaimFeeBps: 99 }),
+    },
+  );
+
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].sql, /create_fee_bps/);
+  assert.equal(calls[0].values[13], 77);
+  assert.equal(calls[0].values[14], 88);
+  assert.equal(calls[0].values[15], 99);
+});
+
 test("handleOptionLog Exercised updates cumulative fields and writes event", async () => {
   const { calls, db } = makeMockDb();
   await handleOptionLog(
@@ -114,6 +154,46 @@ test("handleFuturesLog Settled updates series and appends event", async () => {
   assert.match(calls[1].sql, /INSERT INTO futures_series_events/);
   assert.equal(calls[1].values[2], "Settled");
   assert.equal(calls[1].values[6], "10000");
+});
+
+test("handleFuturesLog SeriesCreated persists resolved fee bps", async () => {
+  const { calls, db } = makeMockDb();
+  await handleFuturesLog(
+    db as never,
+    31337,
+    {
+      eventName: "SeriesCreated",
+      args: {
+        seriesId: 19n,
+        makerPositionKey: "0x1234000000000000000000000000000000000000000000000000000000000000",
+        makerPositionId: 13n,
+        underlyingPoolId: 1n,
+        quotePoolId: 2n,
+        underlyingAsset: "0x0000000000000000000000000000000000000001",
+        quoteAsset: "0x0000000000000000000000000000000000000002",
+        forwardPrice: 2200n,
+        expiry: 1700001000n,
+        totalSize: 55n,
+        underlyingLocked: 55n,
+        graceUnlockTime: 1700001200n,
+        isEuropean: true,
+      },
+    },
+    {
+      blockNumber: 240n,
+      transactionHash: "0xtx-futures-fees",
+      logIndex: 4,
+    } as never,
+    {
+      resolveFuturesSeriesFees: async () => ({ createFeeBps: 12, exerciseFeeBps: 34, reclaimFeeBps: 56 }),
+    },
+  );
+
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].sql, /create_fee_bps/);
+  assert.equal(calls[0].values[14], 12);
+  assert.equal(calls[0].values[15], 34);
+  assert.equal(calls[0].values[16], 56);
 });
 
 test("unknown derivative event is ignored", async () => {

@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS option_series (
   total_size NUMERIC,
   remaining_size NUMERIC,
   collateral_locked NUMERIC,
+  create_fee_bps INTEGER,
+  exercise_fee_bps INTEGER,
+  reclaim_fee_bps INTEGER,
   total_exercised NUMERIC DEFAULT 0,
   total_claims_burned NUMERIC DEFAULT 0,
   is_call BOOLEAN,
@@ -93,6 +96,9 @@ CREATE TABLE IF NOT EXISTS futures_series (
   total_size NUMERIC,
   remaining_size NUMERIC,
   underlying_locked NUMERIC,
+  create_fee_bps INTEGER,
+  exercise_fee_bps INTEGER,
+  reclaim_fee_bps INTEGER,
   total_settled NUMERIC DEFAULT 0,
   total_claims_burned NUMERIC DEFAULT 0,
   is_european BOOLEAN,
@@ -122,6 +128,14 @@ CREATE TABLE IF NOT EXISTS futures_series_events (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (chain_id, tx_hash, log_index)
 );
+
+ALTER TABLE option_series ADD COLUMN IF NOT EXISTS create_fee_bps INTEGER;
+ALTER TABLE option_series ADD COLUMN IF NOT EXISTS exercise_fee_bps INTEGER;
+ALTER TABLE option_series ADD COLUMN IF NOT EXISTS reclaim_fee_bps INTEGER;
+
+ALTER TABLE futures_series ADD COLUMN IF NOT EXISTS create_fee_bps INTEGER;
+ALTER TABLE futures_series ADD COLUMN IF NOT EXISTS exercise_fee_bps INTEGER;
+ALTER TABLE futures_series ADD COLUMN IF NOT EXISTS reclaim_fee_bps INTEGER;
 
 CREATE INDEX IF NOT EXISTS option_series_active_idx ON option_series (reclaimed, remaining_size);
 CREATE INDEX IF NOT EXISTS option_series_position_idx ON option_series (maker_position_id);

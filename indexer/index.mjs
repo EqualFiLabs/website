@@ -6,6 +6,7 @@ import pkg from 'pg'
 import { networks as baseNetworks } from './config.mjs'
 import { FUTURES_EVENTS, OPTION_EVENTS } from './lib/derivatives-events.mjs'
 import { handleFuturesLog, handleOptionLog } from './lib/derivatives.mjs'
+import { derivativeViewFacetAbi } from '../src/lib/abis/derivativeViewFacet.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -124,6 +125,13 @@ const upsertAuction = async (db, chainId, payload) => {
   await db.query(sql, values)
 }
 
+const pickStructValue = (value, key, index) => {
+  if (Array.isArray(value)) {
+    return value[index]
+  }
+  return value?.[key]
+}
+
 const indexNetwork = async (db, net) => {
   if (!net.rpcUrl) {
     console.warn(`[${net.key}] missing RPC url (${net.rpcEnv}) — skipping`)
@@ -147,6 +155,100 @@ const indexNetwork = async (db, net) => {
   }
 
   console.log(`[${net.key}] indexing ${fromBlock} → ${toBlock}`)
+
+  const resolveOptionSeriesFees = async (seriesId, log) => {
+    try {
+      const series = await client.readContract({
+        address: net.diamondAddress,
+        abi: derivativeViewFacetAbi,
+        functionName: 'getOptionSeries',
+        args: [BigInt(seriesId)],
+        blockNumber: log?.blockNumber ?? undefined,
+      })
+      return {
+        createFeeBps: Number(pickStructValue(series, 'createFeeBps', 11) ?? 0),
+        exerciseFeeBps: Number(pickStructValue(series, 'exerciseFeeBps', 12) ?? 0),
+        reclaimFeeBps: Number(pickStructValue(series, 'reclaimFeeBps', 13) ?? 0),
+      }
+    } catch (err) {
+      console.warn(`[${net.key}] option fee resolve failed seriesId=${seriesId}`, err)
+      return null
+    }
+  }
+
+  const resolveFuturesSeriesFees = async (seriesId, log) => {
+    try {
+      const series = await client.readContract({
+        address: net.diamondAddress,
+        abi: derivativeViewFacetAbi,
+        functionName: 'getFuturesSeries',
+        args: [BigInt(seriesId)],
+        blockNumber: log?.blockNumber ?? undefined,
+      })
+      return {
+        createFeeBps: Number(pickStructValue(series, 'createFeeBps', 11) ?? 0),
+        exerciseFeeBps: Number(pickStructValue(series, 'exerciseFeeBps', 12) ?? 0),
+        reclaimFeeBps: Number(pickStructValue(series, 'reclaimFeeBps', 13) ?? 0),
+      }
+    } catch (err) {
+      console.warn(`[${net.key}] futures fee resolve failed seriesId=${seriesId}`, err)
+      return null
+    }
+  }
+
+  const hydrateMissingSeriesFees = async () => {
+    const optionMissing = await db.query(
+      `
+        SELECT series_id
+        FROM option_series
+        WHERE chain_id = $1 AND create_fee_bps IS NULL
+        ORDER BY updated_at DESC
+        LIMIT 200
+      `,
+      [net.chainId],
+    )
+    for (const row of optionMissing.rows) {
+      const fees = await resolveOptionSeriesFees(Number(row.series_id))
+      if (!fees) continue
+      await db.query(
+        `
+          UPDATE option_series
+          SET create_fee_bps = $3,
+              exercise_fee_bps = $4,
+              reclaim_fee_bps = $5,
+              updated_at = NOW()
+          WHERE chain_id = $1 AND series_id = $2
+        `,
+        [net.chainId, Number(row.series_id), fees.createFeeBps, fees.exerciseFeeBps, fees.reclaimFeeBps],
+      )
+    }
+
+    const futuresMissing = await db.query(
+      `
+        SELECT series_id
+        FROM futures_series
+        WHERE chain_id = $1 AND create_fee_bps IS NULL
+        ORDER BY updated_at DESC
+        LIMIT 200
+      `,
+      [net.chainId],
+    )
+    for (const row of futuresMissing.rows) {
+      const fees = await resolveFuturesSeriesFees(Number(row.series_id))
+      if (!fees) continue
+      await db.query(
+        `
+          UPDATE futures_series
+          SET create_fee_bps = $3,
+              exercise_fee_bps = $4,
+              reclaim_fee_bps = $5,
+              updated_at = NOW()
+          WHERE chain_id = $1 AND series_id = $2
+        `,
+        [net.chainId, Number(row.series_id), fees.createFeeBps, fees.exerciseFeeBps, fees.reclaimFeeBps],
+      )
+    }
+  }
 
   const [auctionLogs, optionLogs, futuresLogs] = await Promise.all([
     client.getLogs({
@@ -249,7 +351,7 @@ const indexNetwork = async (db, net) => {
   for (const log of optionLogs) {
     try {
       const decoded = decodeEventLog({ abi: OPTION_EVENTS, data: log.data, topics: log.topics })
-      await handleOptionLog(db, net.chainId, decoded, log)
+      await handleOptionLog(db, net.chainId, decoded, log, { resolveOptionSeriesFees })
     } catch (err) {
       console.warn(`[${net.key}] option log decode failed`, err)
     }
@@ -258,13 +360,14 @@ const indexNetwork = async (db, net) => {
   for (const log of futuresLogs) {
     try {
       const decoded = decodeEventLog({ abi: FUTURES_EVENTS, data: log.data, topics: log.topics })
-      await handleFuturesLog(db, net.chainId, decoded, log)
+      await handleFuturesLog(db, net.chainId, decoded, log, { resolveFuturesSeriesFees })
     } catch (err) {
       console.warn(`[${net.key}] futures log decode failed`, err)
     }
   }
 
   await setLastBlock(db, net.chainId, Number(toBlock))
+  await hydrateMissingSeriesFees()
   console.log(
     `[${net.key}] indexed auctions=${auctionLogs.length} options=${optionLogs.length} futures=${futuresLogs.length}, saved last_block=${toBlock}`,
   )
