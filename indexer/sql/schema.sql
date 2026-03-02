@@ -29,9 +29,27 @@ CREATE TABLE IF NOT EXISTS indexer_state (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ilm_isolated_markets (
+  chain_id INTEGER NOT NULL,
+  market_id TEXT NOT NULL,
+  module_id BIGINT NOT NULL,
+  loan_pool_id BIGINT NOT NULL,
+  collateral_pool_id BIGINT NOT NULL,
+  oracle TEXT NOT NULL,
+  irm TEXT NOT NULL,
+  lltv NUMERIC NOT NULL,
+  raw JSONB,
+  block_number BIGINT,
+  tx_hash TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (chain_id, market_id)
+);
+
 CREATE INDEX IF NOT EXISTS auctions_active_idx ON auctions (active, finalized);
 CREATE INDEX IF NOT EXISTS auctions_pair_idx ON auctions (token_a, token_b);
 CREATE INDEX IF NOT EXISTS auctions_updated_idx ON auctions (updated_at DESC);
+CREATE INDEX IF NOT EXISTS ilm_isolated_markets_updated_idx ON ilm_isolated_markets (updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS option_series (
   chain_id INTEGER NOT NULL,

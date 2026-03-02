@@ -130,13 +130,15 @@ After deploying to new networks, update the appropriate section in `pools.json`:
     "diamondAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3",
     "positionNFTAddress": "0x82c098efe320a6226dda913e286bd309994e310c",
     "faucetAddress": "0x88d90fDA745Da2487974879D400A5eCe434D811c",
-    "pools": [...]
+    "pools": [...],
+    "ilmIsolatedMarkets": [...]
   },
   "testnets": {
     "diamondAddress": "0x027c9ba58be0af69c990da55630d9042d067652b",
     "positionNFTAddress": "0x560beed75ba42f99602f8786abc4700c8b4cb1c5",
     "faucetAddress": "0x88d90fDA745Da2487974879D400A5eCe434D811c",
-    "pools": [...]
+    "pools": [...],
+    "ilmIsolatedMarkets": [...]
   }
 }
 ```

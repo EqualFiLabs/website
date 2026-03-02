@@ -75,7 +75,8 @@
         "tokenAddress": "0x0000000000000000000000000000000000000000",
         "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
       }
-    ]
+    ],
+    "ilmIsolatedMarkets": []
   },
   "testnets": {
     "diamondAddress": "0x027c9ba58be0af69c990da55630d9042d067652b",
@@ -153,6 +154,7 @@
         "tokenAddress": "0x0000000000000000000000000000000000000000",
         "lendingPoolAddress": "0x027c9ba58be0af69c990da55630d9042d067652b"
       }
-    ]
+    ],
+    "ilmIsolatedMarkets": []
   }
 }

@@ -54,12 +54,25 @@ export interface PoolConfig {
   lendingPoolAddress: string;
 }
 
+export interface IlmIsolatedMarketConfig {
+  id: string;
+  name?: string;
+  marketId?: string;
+  loanPoolId: number;
+  collateralPoolId: number;
+  oracle: string;
+  irm: string;
+  lltv: string | number;
+  moduleId?: string | number;
+}
+
 export interface PoolsConfig {
   diamondAddress: string;
   positionNFTAddress: string;
   faucetAddress?: string;
   pools: PoolConfig[];
   indexTokens: IndexToken[];
+  ilmIsolatedMarkets?: IlmIsolatedMarketConfig[];
 }
 
 export interface IndexToken {
@@ -93,4 +106,3 @@ export interface AgentConfig {
   minReserveB: bigint;
   [key: string]: any;
 }
-

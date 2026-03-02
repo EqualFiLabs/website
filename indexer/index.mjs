@@ -6,6 +6,7 @@ import pkg from 'pg'
 import { networks as baseNetworks } from './config.mjs'
 import { FUTURES_EVENTS, OPTION_EVENTS } from './lib/derivatives-events.mjs'
 import { handleFuturesLog, handleOptionLog } from './lib/derivatives.mjs'
+import { handleIlmMarketLog } from './lib/ilm-isolated.mjs'
 import { derivativeViewFacetAbi } from '../src/lib/abis/derivativeViewFacet.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -50,6 +51,12 @@ const AUCTION_EVENTS = [
   parseAbiItem('event CommunityAuctionFinalized(uint256 indexed auctionId, bytes32 indexed creatorPositionKey, uint256 reserveA, uint256 reserveB)'),
   parseAbiItem('event AuctionCancelled(uint256 indexed auctionId, bytes32 indexed makerPositionKey, uint256 reserveA, uint256 reserveB, uint256 makerFeeA, uint256 makerFeeB)'),
   parseAbiItem('event CommunityAuctionCancelled(uint256 indexed auctionId, bytes32 indexed creatorPositionKey, uint256 reserveA, uint256 reserveB)'),
+]
+
+const ILM_MARKET_EVENTS = [
+  parseAbiItem(
+    'event IlmIsolatedCreateMarket(bytes32 indexed marketId, uint256 indexed moduleId, (uint256 loanPoolId,uint256 collateralPoolId,address oracle,address irm,uint256 lltv) params)',
+  ),
 ]
 
 const ensureSchema = async (db) => {
@@ -250,7 +257,7 @@ const indexNetwork = async (db, net) => {
     }
   }
 
-  const [auctionLogs, optionLogs, futuresLogs] = await Promise.all([
+  const [auctionLogs, optionLogs, futuresLogs, ilmMarketLogs] = await Promise.all([
     client.getLogs({
       address: net.diamondAddress,
       events: AUCTION_EVENTS,
@@ -266,6 +273,12 @@ const indexNetwork = async (db, net) => {
     client.getLogs({
       address: net.diamondAddress,
       events: FUTURES_EVENTS,
+      fromBlock,
+      toBlock,
+    }),
+    client.getLogs({
+      address: net.diamondAddress,
+      events: ILM_MARKET_EVENTS,
       fromBlock,
       toBlock,
     }),
@@ -363,6 +376,15 @@ const indexNetwork = async (db, net) => {
       await handleFuturesLog(db, net.chainId, decoded, log, { resolveFuturesSeriesFees })
     } catch (err) {
       console.warn(`[${net.key}] futures log decode failed`, err)
+    }
+  }
+
+  for (const log of ilmMarketLogs) {
+    try {
+      const decoded = decodeEventLog({ abi: ILM_MARKET_EVENTS, data: log.data, topics: log.topics })
+      await handleIlmMarketLog(db, net.chainId, decoded, log)
+    } catch (err) {
+      console.warn(`[${net.key}] failed to process ILM market log`, err)
     }
   }
 

@@ -46,6 +46,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <Link href="/app/credit" className="hover:text-white">
               Credit
             </Link>
+            <Link href="/app/ilm-isolated" className="hover:text-white">
+              ILM Isolated
+            </Link>
             <Link href="/app/index" className="hover:text-white">
               Index
             </Link>
@@ -81,6 +84,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             </Link>
             <Link href="/app/credit" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Credit
+            </Link>
+            <Link href="/app/ilm-isolated" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
+              ILM Isolated
             </Link>
             <Link href="/app/index" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Index

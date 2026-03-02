@@ -26,5 +26,6 @@ node indexer/index.mjs --networks anvil
   - `auctions` (solo/community AMM auctions)
   - `option_series` + `option_series_events`
   - `futures_series` + `futures_series_events`
+  - `ilm_isolated_markets` (from `IlmIsolatedCreateMarket`)
 
 Placeholder values live in `config.mjs` until deployments are ready.

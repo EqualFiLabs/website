@@ -51,6 +51,14 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
+        <Link href="/app/ilm-isolated" className="h-full md:col-span-2">
+          <Card>
+            <SectionHeader title="ILM ISOLATED" subtitle="Market-based lending" />
+            <p className="text-xs font-mono text-gray-400 mt-4">
+              Isolated supply, collateral, borrow, and repay operations.
+            </p>
+          </Card>
+        </Link>
         <Link href="/app/index" className="h-full md:col-span-2 md:col-start-5">
           <Card>
             <SectionHeader title="INDEX" subtitle="Mint + burn" />
