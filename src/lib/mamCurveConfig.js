@@ -1,0 +1,1 @@
+export const MAM_INITIAL_GENERATION = 1;

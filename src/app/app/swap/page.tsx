@@ -1,15 +1,17 @@
 "use client";
-import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
+import type { TokenInfo } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { formatUnits, parseUnits } from "viem";
 import { ammAuctionAbi, communityAuctionAbi } from "@/lib/abis";
+import { mamCurveViewAbi, mamCurveExecutionAbi } from "@/lib/abis/mamCurveFacet";
 import { derivativeViewFacetAbi } from "@/lib/abis/derivativeViewFacet";
 import useActiveChainId from "@/lib/hooks/useActiveChainId";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import usePoolsConfig from "@/lib/hooks/usePoolsConfig";
+import { isMamSwapRouteActive, pickSwapRouteKind, shouldCompareMamOnSwap } from "@/lib/mamRouting";
 import { tokensFromConfig } from "@/lib/tokens";
 import { AppShell } from "../../app-shell";
 import { StatusLine } from "../../app-components";
@@ -37,13 +39,16 @@ export default function SwapPage() {
   const [autoRoute, setAutoRoute] = useState<boolean>(true);
   const [expectedOut, setExpectedOut] = useState<string>("");
 
+  // MAM Curve integration
+  const [includeMamCurves, setIncludeMamCurves] = useState<boolean>(false);
+  const [mamCurveIds, setMamCurveIds] = useState<bigint[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState<any>(null);
+
   const missingContracts = useMemo(() => {
     const missing = [] as string[];
     if (!process.env.NEXT_PUBLIC_DIAMOND_ADDRESS) missing.push("Diamond");
     return missing;
   }, []);
-
-  const canTransact = isConnected && missingContracts.length === 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +124,28 @@ export default function SwapPage() {
     };
     run();
   }, [publicClient, swapIn?.address, swapOut?.address]);
+
+  // Fetch MAM curves for the selected pair when toggle is on
+  useEffect(() => {
+    if (!includeMamCurves || !publicClient || !swapIn?.address || !swapOut?.address) {
+      setMamCurveIds([]);
+      return;
+    }
+    const run = async () => {
+      try {
+        const [ids] = (await publicClient.readContract({
+          address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+          abi: mamCurveViewAbi,
+          functionName: "getCurvesByPair",
+          args: [swapIn.address, swapOut.address, BigInt(0), BigInt(20)],
+        })) as [bigint[]];
+        setMamCurveIds(ids || []);
+      } catch {
+        setMamCurveIds([]);
+      }
+    };
+    run();
+  }, [includeMamCurves, publicClient, swapIn?.address, swapOut?.address]);
 
   useEffect(() => {
     if (!tokens.length) return;
@@ -207,65 +234,89 @@ export default function SwapPage() {
         console.log('[DEBUG] Early return - not enough data');
         setExpectedOut("");
         if (!hasManualMinOut) setSwapMinOut("");
+        setBestAuction(null);
+        setSelectedRoute(null);
         return;
       }
-
-      let pick;
-      if (autoRoute) {
-        // Find best price by previewing all eligible auctions
-        const amountInRaw = parseUnits(swapAmount, swapIn.decimals ?? 18);
-        let bestAuction = eligibleAuctions[0];
-        let bestOutput = BigInt(0);
-
-        for (const auction of eligibleAuctions) {
-          try {
-            let amountOutRaw = BigInt(0);
-            if (auction.type === "community") {
-              const preview = await publicClient!.readContract({
-                address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
-                abi: communityAuctionAbi,
-                functionName: "previewCommunitySwap",
-                args: [BigInt(auction.id), swapIn.address, amountInRaw],
-              });
-              amountOutRaw = preview[0] ?? BigInt(0);
-            } else {
-              const preview = await publicClient!.readContract({
-                address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
-                abi: ammAuctionAbi,
-                functionName: "previewSwap",
-                args: [BigInt(auction.id), swapIn.address, amountInRaw],
-              });
-              amountOutRaw = preview[0] ?? BigInt(0);
-            }
-            if (amountOutRaw > bestOutput) {
-              bestOutput = amountOutRaw;
-              bestAuction = auction;
-            }
-          } catch (err) {
-            console.log('[DEBUG] Preview failed for auction', auction.id, err);
-          }
-        }
-        pick = bestAuction;
-        setBestAuction(bestAuction);
-      } else {
-        pick = eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
-      }
-
-      console.log('[DEBUG] Selected auction:', {
-        id: pick.id,
-        type: pick.type,
-        token_a: pick.token_a,
-        token_b: pick.token_b,
-        reserve_a: pick.reserve_a,
-        reserve_b: pick.reserve_b,
-      });
 
       try {
         const amountInRaw = parseUnits(swapAmount, swapIn.decimals ?? 18);
         const slippageBps = BigInt(50);
-        let amountOutRaw = BigInt(0);
-        let minOutRaw = BigInt(0);
+        let pick = eligibleAuctions[0];
+        let auctionBestOut = BigInt(0);
 
+        const previewAuction = async (auction: any): Promise<bigint> => {
+          if (auction.type === "community") {
+            const preview = await publicClient.readContract({
+              address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+              abi: communityAuctionAbi,
+              functionName: "previewCommunitySwap",
+              args: [BigInt(auction.id), swapIn.address, amountInRaw],
+            });
+            return preview[0] ?? BigInt(0);
+          }
+          const preview = await publicClient.readContract({
+            address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+            abi: ammAuctionAbi,
+            functionName: "previewSwap",
+            args: [BigInt(auction.id), swapIn.address, amountInRaw],
+          });
+          return preview[0] ?? BigInt(0);
+        };
+
+        if (autoRoute) {
+          let bestAuction = eligibleAuctions[0];
+          let bestOutput = BigInt(0);
+          for (const auction of eligibleAuctions) {
+            try {
+              const amountOutRaw = await previewAuction(auction);
+              if (amountOutRaw > bestOutput) {
+                bestOutput = amountOutRaw;
+                bestAuction = auction;
+              }
+            } catch (err) {
+              console.log('[DEBUG] Preview failed for auction', auction.id, err);
+            }
+          }
+          pick = bestAuction;
+          auctionBestOut = bestOutput;
+          setBestAuction(bestAuction);
+        } else {
+          pick = eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
+          setBestAuction(pick);
+          auctionBestOut = await previewAuction(pick);
+        }
+
+        console.log('[DEBUG] Selected auction:', {
+          id: pick.id,
+          type: pick.type,
+          token_a: pick.token_a,
+          token_b: pick.token_b,
+          reserve_a: pick.reserve_a,
+          reserve_b: pick.reserve_b,
+        });
+
+        let mamBest = null;
+        let mamBestOutput = BigInt(0);
+        if (shouldCompareMamOnSwap(autoRoute, includeMamCurves) && mamCurveIds.length > 0) {
+          const fillAmounts = mamCurveIds.map(() => amountInRaw);
+          try {
+            const [outs, , oks] = (await publicClient.readContract({
+              address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+              abi: mamCurveViewAbi,
+              functionName: "quoteCurvesExactInBatch",
+              args: [mamCurveIds, fillAmounts],
+            })) as [bigint[], bigint[], boolean[]];
+            for (let i = 0; i < mamCurveIds.length; i++) {
+              if (oks[i] && outs[i] > mamBestOutput) {
+                mamBestOutput = outs[i];
+                mamBest = { curveId: mamCurveIds[i], amountOut: outs[i] };
+              }
+            }
+          } catch (err) {
+            console.log('[DEBUG] MAM batch quote failed', err);
+          }
+        }
         console.log('[DEBUG] Preview params:', {
           tokenIn: swapIn.address,
           swapInSymbol: swapIn.symbol,
@@ -273,46 +324,46 @@ export default function SwapPage() {
           decimals: swapIn.decimals,
         });
 
-        if (pick.type === "community") {
-          const preview = await publicClient!.readContract({
-            address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
-            abi: communityAuctionAbi,
-            functionName: "previewCommunitySwap",
-            args: [BigInt(pick.id), swapIn.address, amountInRaw],
-          });
-          amountOutRaw = preview[0] ?? BigInt(0);
-          minOutRaw = (amountOutRaw * (BigInt(10000) - slippageBps)) / BigInt(10000);
+        const routeKind = pickSwapRouteKind({
+          autoRoute,
+          includeMamCurves,
+          auctionAmountOut: auctionBestOut,
+          mamAmountOut: mamBest?.amountOut,
+        });
+        if (routeKind === "mam" && mamBest) {
+          const mamOutDisplay = formatUnits(mamBest.amountOut, swapOut.decimals ?? 18);
+          const mamMinRaw = (mamBest.amountOut * (BigInt(10000) - slippageBps)) / BigInt(10000);
+          const mamMinDisplay = formatUnits(mamMinRaw, swapOut.decimals ?? 18);
+          setSelectedRoute({ kind: "mam", curveId: mamBest.curveId });
+          setExpectedOut(mamOutDisplay);
+          if (!hasManualMinOut) setSwapMinOut(mamMinDisplay);
         } else {
-          const preview = await publicClient!.readContract({
-            address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
-            abi: ammAuctionAbi,
-            functionName: "previewSwap",
-            args: [BigInt(pick.id), swapIn.address, amountInRaw],
-          });
-          amountOutRaw = preview[0] ?? BigInt(0);
-          minOutRaw = (amountOutRaw * (BigInt(10000) - slippageBps)) / BigInt(10000);
+          const minOutRaw = (auctionBestOut * (BigInt(10000) - slippageBps)) / BigInt(10000);
+          const outDisplay = formatUnits(auctionBestOut, swapOut.decimals ?? 18);
+          const minDisplay = formatUnits(minOutRaw, swapOut.decimals ?? 18);
+          console.log('[DEBUG] Preview result:', { amountOutRaw: auctionBestOut, outDisplay, minDisplay });
+          setSelectedRoute({ kind: "auction" });
+          setExpectedOut(outDisplay);
+          if (!hasManualMinOut) setSwapMinOut(minDisplay);
         }
-
-        const outDisplay = formatUnits(amountOutRaw, swapOut.decimals ?? 18);
-        const minDisplay = formatUnits(minOutRaw, swapOut.decimals ?? 18);
-        console.log('[DEBUG] Preview result:', { amountOutRaw, outDisplay, minDisplay });
-        setExpectedOut(outDisplay);
-        if (!hasManualMinOut) setSwapMinOut(minDisplay);
       } catch (err) {
         console.log('[DEBUG] Preview failed:', err);
         setExpectedOut("");
+        setSelectedRoute(null);
       }
     };
 
     run();
-  }, [swapAmount, swapIn, swapOut, eligibleAuctions, selectedAuction, autoRoute, publicClient, hasManualMinOut]);
+  }, [swapAmount, swapIn, swapOut, eligibleAuctions, selectedAuction, autoRoute, publicClient, hasManualMinOut, includeMamCurves, mamCurveIds, auctions.length, onchainAuctions.length]);
 
+  const mamRouteActive = isMamSwapRouteActive(selectedRoute?.kind, autoRoute, includeMamCurves);
   const summary = useMemo(() => {
     if (!swapIn || !swapOut) return "Select tokens to view route";
     if (eligibleAuctions.length === 0) return "No matching auctions for this pair";
     if (!swapAmount) return "Enter amount to preview";
-    return `Expected: ${expectedOut || "--"} ${swapOut.symbol} • Min: ${swapMinOut || "--"}`;
-  }, [swapAmount, expectedOut, swapMinOut, swapIn, swapOut, eligibleAuctions.length]);
+    const routeLabel = mamRouteActive ? " • via MAM Curve" : "";
+    return `Expected: ${expectedOut || "--"} ${swapOut.symbol} • Min: ${swapMinOut || "--"}${routeLabel}`;
+  }, [swapAmount, expectedOut, swapMinOut, swapIn, swapOut, eligibleAuctions.length, mamRouteActive]);
 
   const buttonDisabled =
     !isConnected ||
@@ -455,6 +506,30 @@ export default function SwapPage() {
                 </label>
               </div>
 
+              <div className="flex items-center justify-between mt-spacing8 pt-spacing8 border-t border-surface3">
+                <div>
+                  <div className="text-xs font-semibold text-neutral1">MAM Curves</div>
+                  <div className="text-xs text-neutral2">
+                    {!includeMamCurves
+                      ? "Disabled"
+                      : !autoRoute
+                        ? "Available in auto route only"
+                        : mamCurveIds.length > 0
+                          ? `${mamCurveIds.length} curve(s) found${mamRouteActive ? " • best route" : ""}`
+                          : "No curves for this pair"}
+                  </div>
+                </div>
+                <label className="flex items-center gap-spacing8 text-sm font-semibold text-neutral1">
+                  <input
+                    type="checkbox"
+                    checked={includeMamCurves}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeMamCurves(e.target.checked)}
+                    className="h-4 w-4 accent-accent1"
+                  />
+                  Include MAM
+                </label>
+              </div>
+
               {!autoRoute && (
                 <div className="mt-spacing10">
                   <select
@@ -495,9 +570,56 @@ export default function SwapPage() {
 
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 const amountIn = parseUnits(swapAmount || "0", swapIn.decimals);
                 const minOut = parseUnits((swapMinOut || expectedOut || "0"), swapOut.decimals);
+
+                // Route via MAM curve only when auto-route selected it with the toggle enabled.
+                if (mamRouteActive && selectedRoute?.kind === "mam" && publicClient) {
+                  const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+                  const maxQuote = await publicClient.readContract({
+                    address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                    abi: mamCurveExecutionAbi,
+                    functionName: "previewCurveQuote",
+                    args: [selectedRoute.curveId, amountIn],
+                  }) as bigint;
+
+                  let value = undefined;
+                  try {
+                    const fillView: any = await publicClient.readContract({
+                      address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                      abi: mamCurveExecutionAbi,
+                      functionName: "loadCurveForFill",
+                      args: [selectedRoute.curveId],
+                    });
+                    const baseIsA = fillView.baseIsA ?? fillView[6];
+                    const tokenA = fillView.tokenA ?? fillView[4];
+                    const tokenB = fillView.tokenB ?? fillView[5];
+                    const quoteToken = baseIsA ? tokenB : tokenA;
+                    if (String(quoteToken).toLowerCase() === "0x0000000000000000000000000000000000000000") {
+                      value = maxQuote;
+                    }
+                  } catch (err) {
+                    console.log("[DEBUG] loadCurveForFill failed, continuing without value", err);
+                  }
+
+                  writeContract({
+                    address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                    abi: mamCurveExecutionAbi,
+                    functionName: "executeCurveSwap",
+                    args: [
+                      selectedRoute.curveId,
+                      amountIn,
+                      maxQuote,
+                      minOut,
+                      deadline,
+                      address!,
+                    ],
+                    value,
+                  });
+                  return;
+                }
+
                 if (!eligibleAuctions.length) return;
                 const pick = autoRoute
                   ? (bestAuction || eligibleAuctions[0])

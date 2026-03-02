@@ -40,6 +40,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             <Link href="/app/auctions" className="hover:text-white">
               Auctions
             </Link>
+            <Link href="/app/mam-curves" className="hover:text-white">
+              MAM Curves
+            </Link>
             <Link href="/app/derivatives" className="hover:text-white">
               Derivatives
             </Link>
@@ -78,6 +81,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
             </Link>
             <Link href="/app/auctions" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Auctions
+            </Link>
+            <Link href="/app/mam-curves" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
+              MAM Curves
             </Link>
             <Link href="/app/derivatives" className="hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               Derivatives
