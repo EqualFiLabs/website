@@ -16,33 +16,71 @@ import { tokensFromConfig } from "@/lib/tokens";
 import { AppShell } from "../../app-shell";
 import { StatusLine } from "../../app-components";
 
+type SwapToken = {
+  address: string;
+  symbol: string;
+  decimals: number;
+};
+
+type SwapAuction = {
+  id: number;
+  type: string;
+  token_a: string;
+  token_b: string;
+  reserve_a?: unknown;
+  reserve_b?: unknown;
+  fee_bps?: unknown;
+  active?: boolean;
+  finalized?: boolean;
+};
+
+type SelectedRoute =
+  | { kind: "auction" }
+  | { kind: "mam"; curveId: bigint }
+  | null;
+
+type CurveFillView = {
+  baseIsA?: boolean;
+  tokenA?: string;
+  tokenB?: string;
+  [key: number]: unknown;
+};
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+const toSwapToken = (token: Partial<SwapToken> | undefined): SwapToken => ({
+  address: token?.address || "",
+  symbol: token?.symbol || "",
+  decimals: token?.decimals ?? 18,
+});
+
 export default function SwapPage() {
   const { isConnected, address } = useAccount();
   const { writeContract, isPending } = useBufferedWriteContract();
   const activeChainId = useActiveChainId();
   const publicClient = useActivePublicClient();
   const poolsConfig = usePoolsConfig();
-  const tokens = useMemo(() => tokensFromConfig(poolsConfig), [poolsConfig]);
-  const defaultIn = tokens[0] || { symbol: "", address: "", decimals: 18 };
-  const defaultOut = tokens[1] || { symbol: "", address: "", decimals: 18 };
+  const tokens = useMemo(() => tokensFromConfig(poolsConfig) as SwapToken[], [poolsConfig]);
+  const defaultIn = toSwapToken(tokens[0]);
+  const defaultOut = toSwapToken(tokens[1]);
 
-  const [swapIn, setSwapIn] = useState<any>(defaultIn);
-  const [swapOut, setSwapOut] = useState<any>(defaultOut);
+  const [swapIn, setSwapIn] = useState<SwapToken>(defaultIn);
+  const [swapOut, setSwapOut] = useState<SwapToken>(defaultOut);
   const [hasManualSelection, setHasManualSelection] = useState<boolean>(false);
-  const [swapAmount, setSwapAmount] = useState<any>("");
-  const [swapMinOut, setSwapMinOut] = useState<any>("");
+  const [swapAmount, setSwapAmount] = useState<string>("");
+  const [swapMinOut, setSwapMinOut] = useState<string>("");
   const [hasManualMinOut, setHasManualMinOut] = useState<boolean>(false);
-  const [auctions, setAuctions] = useState<any[]>([]);
-  const [onchainAuctions, setOnchainAuctions] = useState<any[]>([]);
+  const [auctions, setAuctions] = useState<SwapAuction[]>([]);
+  const [onchainAuctions, setOnchainAuctions] = useState<SwapAuction[]>([]);
   const [selectedAuction, setSelectedAuction] = useState<string>("");
-  const [bestAuction, setBestAuction] = useState<any>(null);
+  const [bestAuction, setBestAuction] = useState<SwapAuction | null>(null);
   const [autoRoute, setAutoRoute] = useState<boolean>(true);
   const [expectedOut, setExpectedOut] = useState<string>("");
 
   // MAM Curve integration
   const [includeMamCurves, setIncludeMamCurves] = useState<boolean>(false);
   const [mamCurveIds, setMamCurveIds] = useState<bigint[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState<any>(null);
+  const [selectedRoute, setSelectedRoute] = useState<SelectedRoute>(null);
 
   const missingContracts = useMemo(() => {
     const missing = [] as string[];
@@ -57,7 +95,7 @@ export default function SwapPage() {
       const cacheBuster = `${chainParam ? '&' : '?'}t=${Date.now()}`;
       fetch(`/api/auctions${chainParam}${cacheBuster}`)
         .then((res: Response) => res.json())
-        .then((data: any) => {
+        .then((data: { auctions?: SwapAuction[] }) => {
           if (!cancelled) {
             console.log('[DEBUG] Auctions fetched:', data.auctions?.length, data.auctions);
             setAuctions(data.auctions || []);
@@ -98,22 +136,22 @@ export default function SwapPage() {
         }
         const auctions = await Promise.all(
           uniqueIds.map(async (id: number) => {
-            const a: any = await publicClient!.readContract({
+            const a = await publicClient!.readContract({
               address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
               abi: derivativeViewFacetAbi,
               functionName: "getAmmAuction",
               args: [BigInt(id)],
-            });
+            }) as Record<string, unknown> & unknown[];
             return {
               id,
               type: "solo",
-              token_a: a.tokenA ?? a[4],
-              token_b: a.tokenB ?? a[5],
+              token_a: String(a.tokenA ?? a[4] ?? ""),
+              token_b: String(a.tokenB ?? a[5] ?? ""),
               reserve_a: a.reserveA ?? a[6],
               reserve_b: a.reserveB ?? a[7],
               fee_bps: a.feeBps ?? a[13],
-              active: a.active ?? a[19],
-              finalized: a.finalized ?? a[20],
+              active: Boolean(a.active ?? a[19]),
+              finalized: Boolean(a.finalized ?? a[20]),
             };
           })
         );
@@ -127,11 +165,12 @@ export default function SwapPage() {
 
   // Fetch MAM curves for the selected pair when toggle is on
   useEffect(() => {
-    if (!includeMamCurves || !publicClient || !swapIn?.address || !swapOut?.address) {
-      setMamCurveIds([]);
-      return;
-    }
+    let cancelled = false;
     const run = async () => {
+      if (!includeMamCurves || !publicClient || !swapIn?.address || !swapOut?.address) {
+        if (!cancelled) setMamCurveIds([]);
+        return;
+      }
       try {
         const [ids] = (await publicClient.readContract({
           address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
@@ -139,54 +178,66 @@ export default function SwapPage() {
           functionName: "getCurvesByPair",
           args: [swapIn.address, swapOut.address, BigInt(0), BigInt(20)],
         })) as [bigint[]];
-        setMamCurveIds(ids || []);
+        if (!cancelled) setMamCurveIds(ids || []);
       } catch {
-        setMamCurveIds([]);
+        if (!cancelled) setMamCurveIds([]);
       }
     };
     run();
+    return () => {
+      cancelled = true;
+    };
   }, [includeMamCurves, publicClient, swapIn?.address, swapOut?.address]);
 
   useEffect(() => {
-    if (!tokens.length) return;
-    if (!swapIn?.address && tokens[0]) {
-      console.log('[DEBUG] Setting swapIn from tokens[0]:', tokens[0]);
-      setSwapIn(tokens[0]);
-    }
-    if (!swapOut?.address && tokens[1]) {
-      console.log('[DEBUG] Setting swapOut from tokens[1]:', tokens[1]);
-      setSwapOut(tokens[1]);
-    }
+    const run = () => {
+      if (!tokens.length) return;
+      if (!swapIn?.address && tokens[0]) {
+        console.log('[DEBUG] Setting swapIn from tokens[0]:', tokens[0]);
+        setSwapIn(toSwapToken(tokens[0]));
+      }
+      if (!swapOut?.address && tokens[1]) {
+        console.log('[DEBUG] Setting swapOut from tokens[1]:', tokens[1]);
+        setSwapOut(toSwapToken(tokens[1]));
+      }
+    };
+    run();
   }, [tokens, swapIn?.address, swapOut?.address]);
 
   useEffect(() => {
-    if (hasManualSelection || !auctions.length) return;
-    const first = auctions[0];
-    const tokenA = (first.token_a || '').toLowerCase();
-    const tokenB = (first.token_b || '').toLowerCase();
-    const matchA = tokens.find((t: TokenInfo) => t.address.toLowerCase() === tokenA);
-    const matchB = tokens.find((t: TokenInfo) => t.address.toLowerCase() === tokenB);
-    if (matchA && matchB) {
-      setSwapIn(matchA);
-      setSwapOut(matchB);
-    }
+    const run = () => {
+      if (hasManualSelection || !auctions.length) return;
+      const first = auctions[0];
+      const tokenA = (first.token_a || '').toLowerCase();
+      const tokenB = (first.token_b || '').toLowerCase();
+      const matchA = tokens.find((t: TokenInfo) => t.address.toLowerCase() === tokenA);
+      const matchB = tokens.find((t: TokenInfo) => t.address.toLowerCase() === tokenB);
+      if (matchA && matchB) {
+        setSwapIn(toSwapToken(matchA));
+        setSwapOut(toSwapToken(matchB));
+      }
+    };
+    run();
   }, [auctions, hasManualSelection, tokens]);
+
+  const swapInAddress = swapIn.address || "";
+  const swapOutAddress = swapOut.address || "";
 
   const eligibleAuctions = useMemo(() => {
     console.log('[DEBUG] Computing eligibleAuctions:', {
-      swapInAddress: swapIn?.address,
-      swapOutAddress: swapOut?.address,
+      swapInAddress,
+      swapOutAddress,
       auctionCount: (auctions.length + onchainAuctions.length),
       auctions,
       onchainAuctions,
     });
 
-    if (!swapIn?.address || !swapOut?.address) {
+    if (!swapInAddress || !swapOutAddress) {
       console.log('[DEBUG] Early return - swapIn/swapOut undefined');
       return [];
     }
-    const inAddr = swapIn.address.toLowerCase();
-    const outAddr = swapOut.address.toLowerCase();
+    const inAddr = swapInAddress.toLowerCase();
+    const outAddr = swapOutAddress.toLowerCase();
     const source = auctions.length ? auctions : onchainAuctions;
     
     console.log('[DEBUG] Filtering auctions:', {
@@ -196,7 +247,7 @@ export default function SwapPage() {
       sampleAuction: source[0],
     });
     
-    const result = source.filter((a: any) => {
+    const result = source.filter((a: SwapAuction) => {
       const aIn = a.token_a?.toLowerCase();
       const aOut = a.token_b?.toLowerCase();
       const isActive = a.active !== false && a.finalized !== true;
@@ -215,7 +266,7 @@ export default function SwapPage() {
     });
     console.log('[DEBUG] eligibleAuctions result:', result.length, 'found');
     return result;
-  }, [auctions, onchainAuctions, swapIn?.address, swapOut?.address]);
+  }, [auctions, onchainAuctions, swapInAddress, swapOutAddress]);
 
   useEffect(() => {
     const run = async () => {
@@ -245,7 +296,7 @@ export default function SwapPage() {
         let pick = eligibleAuctions[0];
         let auctionBestOut = BigInt(0);
 
-        const previewAuction = async (auction: any): Promise<bigint> => {
+        const previewAuction = async (auction: SwapAuction): Promise<bigint> => {
           if (auction.type === "community") {
             const preview = await publicClient.readContract({
               address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
@@ -282,7 +333,7 @@ export default function SwapPage() {
           auctionBestOut = bestOutput;
           setBestAuction(bestAuction);
         } else {
-          pick = eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
+          pick = eligibleAuctions.find((m) => String(m.id) === selectedAuction) || eligibleAuctions[0];
           setBestAuction(pick);
           auctionBestOut = await previewAuction(pick);
         }
@@ -411,7 +462,7 @@ export default function SwapPage() {
                       value={swapIn.symbol}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         setHasManualSelection(true);
-                        setSwapIn(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[0]);
+                        setSwapIn(toSwapToken(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[0]));
                       }}
                       className="absolute inset-0 opacity-0 cursor-pointer [&>option]:text-black [&>option]:bg-white"
                     >
@@ -472,7 +523,7 @@ export default function SwapPage() {
                       value={swapOut.symbol}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         setHasManualSelection(true);
-                        setSwapOut(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[1]);
+                        setSwapOut(toSwapToken(tokens.find((t: TokenInfo) => t.symbol === e.target.value) || tokens[1]));
                       }}
                       className="absolute inset-0 opacity-0 cursor-pointer [&>option]:text-black [&>option]:bg-white"
                     >
@@ -499,7 +550,11 @@ export default function SwapPage() {
                   <input
                     type="checkbox"
                     checked={autoRoute}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoRoute(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const nextAutoRoute = e.target.checked;
+                      setAutoRoute(nextAutoRoute);
+                      if (!nextAutoRoute) setIncludeMamCurves(false);
+                    }}
                     className="h-4 w-4 accent-accent1"
                   />
                   Auto route
@@ -523,6 +578,7 @@ export default function SwapPage() {
                   <input
                     type="checkbox"
                     checked={includeMamCurves}
+                    disabled={!autoRoute}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeMamCurves(e.target.checked)}
                     className="h-4 w-4 accent-accent1"
                   />
@@ -537,7 +593,7 @@ export default function SwapPage() {
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAuction(e.target.value)}
                     className="w-full rounded-xl border border-surface3 bg-surface1 px-spacing12 py-spacing8 text-sm text-neutral1 focus:outline-none focus:ring-2 focus:ring-accent1"
                   >
-                    {eligibleAuctions.map((auction: any) => (
+                    {eligibleAuctions.map((auction) => (
                       <option key={`${auction.type}-${auction.id}`} value={auction.id}>
                         Auction {auction.id} — Fee {auction.fee_bps}
                       </option>
@@ -545,7 +601,7 @@ export default function SwapPage() {
                   </select>
 
                   <div className="mt-spacing8 space-y-spacing6 text-xs text-neutral2">
-                    {eligibleAuctions.map((auction: any) => (
+                    {eligibleAuctions.map((auction) => (
                       <div
                         key={`${auction.type}-${auction.id}-row`}
                         className={[
@@ -586,17 +642,17 @@ export default function SwapPage() {
 
                   let value = undefined;
                   try {
-                    const fillView: any = await publicClient.readContract({
+                    const fillView = await publicClient.readContract({
                       address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
                       abi: mamCurveExecutionAbi,
                       functionName: "loadCurveForFill",
                       args: [selectedRoute.curveId],
-                    });
+                    }) as CurveFillView;
                     const baseIsA = fillView.baseIsA ?? fillView[6];
                     const tokenA = fillView.tokenA ?? fillView[4];
                     const tokenB = fillView.tokenB ?? fillView[5];
                     const quoteToken = baseIsA ? tokenB : tokenA;
-                    if (String(quoteToken).toLowerCase() === "0x0000000000000000000000000000000000000000") {
+                    if (String(quoteToken).toLowerCase() === ZERO_ADDRESS) {
                       value = maxQuote;
                     }
                   } catch (err) {
@@ -623,7 +679,7 @@ export default function SwapPage() {
                 if (!eligibleAuctions.length) return;
                 const pick = autoRoute
                   ? (bestAuction || eligibleAuctions[0])
-                  : eligibleAuctions.find((m: any) => String(m.id) === selectedAuction) || eligibleAuctions[0];
+                  : eligibleAuctions.find((m) => String(m.id) === selectedAuction) || eligibleAuctions[0];
                 const isCommunity = pick.type === "community";
                 writeContract({
                   address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
@@ -637,7 +693,7 @@ export default function SwapPage() {
                     minOut,
                     address!,
                   ],
-                  value: swapIn.address === "0x0000000000000000000000000000000000000000" ? amountIn : undefined,
+                  value: swapIn.address === ZERO_ADDRESS ? amountIn : undefined,
                 });
               }}
               disabled={buttonDisabled}
