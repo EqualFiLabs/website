@@ -388,6 +388,7 @@ export const positionViewFacetAbi = [
           { internalType: 'uint256', name: 'directLent', type: 'uint256' },
           { internalType: 'uint256', name: 'directOfferEscrow', type: 'uint256' },
           { internalType: 'uint256', name: 'indexEncumbered', type: 'uint256' },
+          { internalType: 'uint256', name: 'moduleEncumbered', type: 'uint256' },
           { internalType: 'uint256', name: 'totalEncumbered', type: 'uint256' },
         ],
         internalType: 'struct IPositionViewFacet.PositionEncumbrance',

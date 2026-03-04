@@ -94,16 +94,25 @@ function usePositionNFTs() {
     const hasDirectLent =
       (typeof value === 'object' && value !== null && 'directLent' in value) ||
       (Array.isArray(value) && value.length > 4)
+    const hasModuleField =
+      (typeof value === 'object' && value !== null && 'moduleEncumbered' in value) ||
+      (Array.isArray(value) && value.length > 5)
+    const moduleIndex = hasDirectLent ? 4 : 3
+    const totalIndex = hasDirectLent ? 5 : 4
     const directLocked = value.directLocked ?? value[0] ?? BigInt(0)
     const directLent = value.directLent ?? (hasDirectLent && Array.isArray(value) ? value[1] : BigInt(0))
     const directOfferEscrow =
       value.directOfferEscrow ?? (Array.isArray(value) ? value[hasDirectLent ? 2 : 1] : BigInt(0))
     const indexEncumbered =
       value.indexEncumbered ?? (Array.isArray(value) ? value[hasDirectLent ? 3 : 2] : BigInt(0))
+    const moduleEncumbered =
+      value.moduleEncumbered ?? (Array.isArray(value) && hasModuleField ? value[moduleIndex] : BigInt(0))
     const totalEncumbered =
       value.totalEncumbered ??
-      (Array.isArray(value) ? value[hasDirectLent ? 4 : 3] : directLocked + directOfferEscrow + indexEncumbered + directLent)
-    return { directLocked, directLent, directOfferEscrow, indexEncumbered, totalEncumbered }
+      (Array.isArray(value)
+        ? value[hasModuleField ? totalIndex : totalIndex - 1]
+        : directLocked + directOfferEscrow + indexEncumbered + directLent + moduleEncumbered)
+    return { directLocked, directLent, directOfferEscrow, indexEncumbered, moduleEncumbered, totalEncumbered }
   }
 
   const extractAuctionPage = (value) => {

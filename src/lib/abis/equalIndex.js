@@ -12,6 +12,66 @@ export const equalIndexFacetV3Abi = [
     anonymous: false,
   },
   {
+    type: 'event',
+    name: 'LoanCreated',
+    inputs: [
+      { name: 'loanId', type: 'uint256', indexed: true },
+      { name: 'positionKey', type: 'bytes32', indexed: true },
+      { name: 'indexId', type: 'uint256', indexed: true },
+      { name: 'borrowAsset', type: 'address', indexed: false },
+      { name: 'collateralUnits', type: 'uint256', indexed: false },
+      { name: 'principal', type: 'uint256', indexed: false },
+      { name: 'maturity', type: 'uint40', indexed: false },
+      { name: 'fee', type: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LoanRepaid',
+    inputs: [
+      { name: 'loanId', type: 'uint256', indexed: true },
+      { name: 'indexId', type: 'uint256', indexed: true },
+      { name: 'borrowAsset', type: 'address', indexed: false },
+      { name: 'principal', type: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LoanExtended',
+    inputs: [
+      { name: 'loanId', type: 'uint256', indexed: true },
+      { name: 'newMaturity', type: 'uint40', indexed: false },
+      { name: 'fee', type: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LoanRecovered',
+    inputs: [
+      { name: 'loanId', type: 'uint256', indexed: true },
+      { name: 'indexId', type: 'uint256', indexed: true },
+      { name: 'borrowAsset', type: 'address', indexed: false },
+      { name: 'collateralUnits', type: 'uint256', indexed: false },
+      { name: 'writtenOffPrincipal', type: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LendingConfigured',
+    inputs: [
+      { name: 'indexId', type: 'uint256', indexed: true },
+      { name: 'ltvBps', type: 'uint16', indexed: false },
+      { name: 'originationFeeBps', type: 'uint16', indexed: false },
+      { name: 'minDuration', type: 'uint40', indexed: false },
+      { name: 'maxDuration', type: 'uint40', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
     type: 'function',
     name: 'createIndex',
     inputs: [

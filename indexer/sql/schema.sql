@@ -164,3 +164,28 @@ CREATE INDEX IF NOT EXISTS futures_series_active_idx ON futures_series (reclaime
 CREATE INDEX IF NOT EXISTS futures_series_position_idx ON futures_series (maker_position_id);
 CREATE INDEX IF NOT EXISTS futures_series_updated_idx ON futures_series (updated_at DESC);
 CREATE INDEX IF NOT EXISTS futures_series_events_series_idx ON futures_series_events (chain_id, series_id, block_number DESC);
+
+CREATE TABLE IF NOT EXISTS index_loans (
+  chain_id INTEGER NOT NULL,
+  loan_id BIGINT NOT NULL,
+  position_key TEXT,
+  index_id BIGINT,
+  borrow_asset TEXT,
+  collateral_units NUMERIC,
+  principal NUMERIC,
+  maturity BIGINT,
+  last_fee NUMERIC,
+  active BOOLEAN DEFAULT FALSE,
+  recovered BOOLEAN DEFAULT FALSE,
+  last_event TEXT,
+  raw JSONB,
+  block_number BIGINT,
+  tx_hash TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (chain_id, loan_id)
+);
+
+CREATE INDEX IF NOT EXISTS index_loans_active_idx ON index_loans (chain_id, active, updated_at DESC);
+CREATE INDEX IF NOT EXISTS index_loans_position_idx ON index_loans (chain_id, position_key, updated_at DESC);
+CREATE INDEX IF NOT EXISTS index_loans_index_idx ON index_loans (chain_id, index_id, updated_at DESC);

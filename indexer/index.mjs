@@ -7,6 +7,7 @@ import { networks as baseNetworks } from './config.mjs'
 import { FUTURES_EVENTS, OPTION_EVENTS } from './lib/derivatives-events.mjs'
 import { handleFuturesLog, handleOptionLog } from './lib/derivatives.mjs'
 import { handleIlmMarketLog } from './lib/ilm-isolated.mjs'
+import { handleIndexLoanLog, INDEX_LOAN_EVENTS } from './lib/index-loans.mjs'
 import { derivativeViewFacetAbi } from '../src/lib/abis/derivativeViewFacet.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -257,7 +258,7 @@ const indexNetwork = async (db, net) => {
     }
   }
 
-  const [auctionLogs, optionLogs, futuresLogs, ilmMarketLogs] = await Promise.all([
+  const [auctionLogs, optionLogs, futuresLogs, ilmMarketLogs, indexLoanLogs] = await Promise.all([
     client.getLogs({
       address: net.diamondAddress,
       events: AUCTION_EVENTS,
@@ -279,6 +280,12 @@ const indexNetwork = async (db, net) => {
     client.getLogs({
       address: net.diamondAddress,
       events: ILM_MARKET_EVENTS,
+      fromBlock,
+      toBlock,
+    }),
+    client.getLogs({
+      address: net.diamondAddress,
+      events: INDEX_LOAN_EVENTS,
       fromBlock,
       toBlock,
     }),
@@ -388,10 +395,19 @@ const indexNetwork = async (db, net) => {
     }
   }
 
+  for (const log of indexLoanLogs) {
+    try {
+      const decoded = decodeEventLog({ abi: INDEX_LOAN_EVENTS, data: log.data, topics: log.topics })
+      await handleIndexLoanLog(db, net.chainId, decoded, log)
+    } catch (err) {
+      console.warn(`[${net.key}] index lending log decode failed`, err)
+    }
+  }
+
   await setLastBlock(db, net.chainId, Number(toBlock))
   await hydrateMissingSeriesFees()
   console.log(
-    `[${net.key}] indexed auctions=${auctionLogs.length} options=${optionLogs.length} futures=${futuresLogs.length}, saved last_block=${toBlock}`,
+    `[${net.key}] indexed auctions=${auctionLogs.length} options=${optionLogs.length} futures=${futuresLogs.length} indexLoans=${indexLoanLogs.length}, saved last_block=${toBlock}`,
   )
 }
 
