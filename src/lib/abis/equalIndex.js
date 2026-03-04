@@ -104,4 +104,44 @@ export const equalIndexFacetV3Abi = [
     ],
     stateMutability: 'view',
   },
+  {
+    type: 'function',
+    name: 'getVaultBalance',
+    inputs: [
+      { name: 'indexId', type: 'uint256', internalType: 'uint256' },
+      { name: 'asset', type: 'address', internalType: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getFeePot',
+    inputs: [
+      { name: 'indexId', type: 'uint256', internalType: 'uint256' },
+      { name: 'asset', type: 'address', internalType: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getOutstandingPrincipal',
+    inputs: [
+      { name: 'indexId', type: 'uint256', internalType: 'uint256' },
+      { name: 'asset', type: 'address', internalType: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'economicBalance',
+    inputs: [
+      { name: 'indexId', type: 'uint256', internalType: 'uint256' },
+      { name: 'asset', type: 'address', internalType: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'view',
+  },
 ]
