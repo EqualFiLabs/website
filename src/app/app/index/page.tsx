@@ -1,7 +1,7 @@
 "use client";
-import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
+import type { PoolConfig, PositionNFT } from '@/types'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { decodeEventLog, erc20Abi, formatUnits, isAddress, maxUint256, parseUnits } from 'viem'
 import { useAccount } from 'wagmi'
 import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
@@ -14,10 +14,15 @@ import { equalIndexFacetV3Abi } from '@/lib/abis/equalIndex'
 import { useToasts } from '@/components/common/ToastProvider'
 import CreateIndexModal from '@/components/index/CreateIndexModal'
 import { ZERO_ADDRESS } from '@/lib/address'
-
-const INDEX_SCALE = BigInt(10) ** BigInt(18)
+import {
+  buildBufferedMaxInputs,
+  computeMintRequirement,
+  DEFAULT_MINT_MAX_SLIPPAGE_BPS,
+  INDEX_SCALE,
+} from '@/lib/indexMintQuote'
 
 const normalizeAddress = (value: any) => (value ? value.toLowerCase() : '')
+const toBigInt = (value: any) => (typeof value === 'bigint' ? value : BigInt(value ?? 0))
 
 const newAssetRow = (assetAddress = '', decimals = '') => ({
   id: `asset-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -108,6 +113,8 @@ export default function IndexPage() {
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false)
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
+  const [requiredAssets, setRequiredAssets] = useState<any[]>([])
+  const [requiredAssetsLoading, setRequiredAssetsLoading] = useState<boolean>(false)
 
   useEffect(() => {
     if (!assetRows.length) {
@@ -225,26 +232,126 @@ export default function IndexPage() {
     return ''
   }, [isConnected, indexView, unitsValid, mintMode, resolvedPositionId])
 
-  const requiredAssets = useMemo(() => {
-    if (!indexView || parsedUnits <= BigInt(0)) return []
-    const assets = indexView.assets || []
-    const bundles = indexView.bundleAmounts || []
-    const fees = indexView.mintFeeBps || []
-    return assets.map((asset: any, idx: any) => {
-      const meta = assetMeta.get(normalizeAddress(asset))
-      const decimals = meta?.decimals ?? 18
-      const base = (bundles[idx] * parsedUnits) / INDEX_SCALE
-      const fee = (base * BigInt(fees[idx] ?? 0)) / BigInt(10000)
-      return {
-        asset,
-        ticker: meta?.ticker || 'UNK',
-        decimals,
-        base,
-        fee,
-        total: base + fee,
+  const quoteMintInputs = useCallback(
+    async (unitsToMint: bigint) => {
+      if (!publicClient || !diamondAddress || !indexView || unitsToMint <= 0n) return []
+
+      const assets = indexView.assets || []
+      const bundles = indexView.bundleAmounts || []
+      const mintFeeBps = indexView.mintFeeBps || []
+      const totalSupply = toBigInt(indexView.totalUnits)
+      const indexId = BigInt(selectedIndexId)
+
+      return Promise.all(
+        assets.map(async (asset: any, idx: any) => {
+          const meta = assetMeta.get(normalizeAddress(asset))
+          const decimals = meta?.decimals ?? 18
+          const bundleAmount = toBigInt(bundles[idx] ?? 0)
+          const feeBps = toBigInt(mintFeeBps[idx] ?? 0)
+
+          let economicBalance = 0n
+          let feePot = 0n
+          if (totalSupply > 0n) {
+            feePot = toBigInt(
+              await publicClient.readContract({
+                address: diamondAddress as `0x${string}`,
+                abi: equalIndexFacetV3Abi,
+                functionName: 'getFeePot',
+                args: [indexId, asset],
+              }),
+            )
+
+            try {
+              economicBalance = toBigInt(
+                await publicClient.readContract({
+                  address: diamondAddress as `0x${string}`,
+                  abi: equalIndexFacetV3Abi,
+                  functionName: 'economicBalance',
+                  args: [indexId, asset],
+                }),
+              )
+            } catch {
+              const vaultBalance = toBigInt(
+                await publicClient.readContract({
+                  address: diamondAddress as `0x${string}`,
+                  abi: equalIndexFacetV3Abi,
+                  functionName: 'getVaultBalance',
+                  args: [indexId, asset],
+                }),
+              )
+              let outstandingPrincipal = 0n
+              try {
+                outstandingPrincipal = toBigInt(
+                  await publicClient.readContract({
+                    address: diamondAddress as `0x${string}`,
+                    abi: equalIndexFacetV3Abi,
+                    functionName: 'getOutstandingPrincipal',
+                    args: [indexId, asset],
+                  }),
+                )
+              } catch {
+                outstandingPrincipal = 0n
+              }
+              economicBalance = vaultBalance + outstandingPrincipal
+            }
+          }
+
+          const { need, potBuyIn, fee, total } = computeMintRequirement({
+            bundleAmount,
+            units: unitsToMint,
+            totalSupply,
+            mintFeeBps: feeBps,
+            economicBalance,
+            feePot,
+          })
+
+          return {
+            asset,
+            ticker: meta?.ticker || 'UNK',
+            decimals,
+            base: need,
+            potBuyIn,
+            fee,
+            total,
+          }
+        }),
+      )
+    },
+    [assetMeta, diamondAddress, indexView, publicClient, selectedIndexId],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadRequirements = async () => {
+      if (!indexView || parsedUnits <= 0n || !publicClient || !diamondAddress) {
+        setRequiredAssets([])
+        setRequiredAssetsLoading(false)
+        return
       }
-    })
-  }, [indexView, parsedUnits, assetMeta])
+
+      setRequiredAssetsLoading(true)
+      try {
+        const next = await quoteMintInputs(parsedUnits)
+        if (!cancelled) {
+          setRequiredAssets(next)
+        }
+      } catch {
+        if (!cancelled) {
+          setRequiredAssets([])
+        }
+      } finally {
+        if (!cancelled) {
+          setRequiredAssetsLoading(false)
+        }
+      }
+    }
+
+    loadRequirements()
+    return () => {
+      cancelled = true
+    }
+  }, [diamondAddress, indexView, parsedUnits, publicClient, quoteMintInputs])
 
   const indexSummary = useMemo(() => {
     if (!indexView) return null
@@ -326,6 +433,13 @@ export default function IndexPage() {
 
       if (mintMode === 'position') {
         if (!resolvedPositionId) throw new Error('Select a position NFT')
+        await publicClient!.simulateContract({
+          address: diamondAddress as `0x${string}`,
+          abi: equalIndexFacetV3Abi,
+          functionName: 'mintFromPosition',
+          args: [BigInt(resolvedPositionId), BigInt(selectedIndexId), parsedUnits],
+          account: address,
+        })
         const txHash = await writeContractAsync({
           address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
@@ -347,16 +461,32 @@ export default function IndexPage() {
           link: buildTxUrl(txHash),
         })
       } else {
+        const quotedAssets = await quoteMintInputs(parsedUnits)
+        if (!quotedAssets.length) {
+          throw new Error('Unable to calculate mint inputs from chain state')
+        }
+        setRequiredAssets(quotedAssets)
+
+        const maxInputAmounts = buildBufferedMaxInputs(quotedAssets, DEFAULT_MINT_MAX_SLIPPAGE_BPS)
         let nativeTotal = BigInt(0)
-        for (const asset of requiredAssets) {
-          if (asset.total === BigInt(0)) continue
+        for (let i = 0; i < quotedAssets.length; i++) {
+          const asset = quotedAssets[i]
+          const maxAmount = maxInputAmounts[i]
+          if (maxAmount === BigInt(0)) continue
           if (normalizeAddress(asset.asset) === ZERO_ADDRESS) {
-            nativeTotal += asset.total
+            nativeTotal += maxAmount
             continue
           }
-          await ensureAllowance(asset.asset, diamondAddress, asset.total)
+          await ensureAllowance(asset.asset, diamondAddress, maxAmount)
         }
-        const maxInputAmounts = requiredAssets.map((asset: any) => asset.total)
+        await publicClient!.simulateContract({
+          address: diamondAddress as `0x${string}`,
+          abi: equalIndexFacetV3Abi,
+          functionName: 'mint',
+          args: [BigInt(selectedIndexId), parsedUnits, address, maxInputAmounts],
+          value: nativeTotal > BigInt(0) ? nativeTotal : undefined,
+          account: address,
+        })
         const txHash = await writeContractAsync({
           address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
@@ -401,6 +531,13 @@ export default function IndexPage() {
 
       if (mintMode === 'position') {
         if (!resolvedPositionId) throw new Error('Select a position NFT')
+        await publicClient!.simulateContract({
+          address: diamondAddress as `0x${string}`,
+          abi: equalIndexFacetV3Abi,
+          functionName: 'burnFromPosition',
+          args: [BigInt(resolvedPositionId), BigInt(selectedIndexId), parsedUnits],
+          account: address,
+        })
         const txHash = await writeContractAsync({
           address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
@@ -422,6 +559,13 @@ export default function IndexPage() {
           link: buildTxUrl(txHash),
         })
       } else {
+        await publicClient!.simulateContract({
+          address: diamondAddress as `0x${string}`,
+          abi: equalIndexFacetV3Abi,
+          functionName: 'burn',
+          args: [BigInt(selectedIndexId), parsedUnits, address],
+          account: address,
+        })
         const txHash = await writeContractAsync({
           address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
@@ -891,7 +1035,12 @@ export default function IndexPage() {
               </div>
 
               <div className="mt-6 rounded-2xl border border-surface2 bg-surface2/40 p-4 text-sm text-neutral2">
-                {requiredAssets.length ? (
+                {requiredAssetsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-4 text-center">
+                    <p className="mb-1 text-base font-medium text-neutral1">Mint Requirements</p>
+                    <p>Refreshing on-chain quote…</p>
+                  </div>
+                ) : requiredAssets.length ? (
                   <div className="space-y-3">
                     <div className="text-sm font-semibold text-neutral1">Mint Requirements</div>
                     {requiredAssets.map((asset: any) => (
@@ -907,10 +1056,14 @@ export default function IndexPage() {
                         </div>
                         <div className="mt-1 flex justify-end gap-3 text-xs text-neutral2">
                           <span>Base: {formatUnits(asset.base, asset.decimals)}</span>
+                          <span>Fee Pot Buy-in: {formatUnits(asset.potBuyIn || BigInt(0), asset.decimals)}</span>
                           <span>Fee: {formatUnits(asset.fee, asset.decimals)}</span>
                         </div>
                       </div>
                     ))}
+                    <p className="text-xs text-neutral3">
+                      Max input uses a {(Number(DEFAULT_MINT_MAX_SLIPPAGE_BPS) / 100).toFixed(2)}% safety buffer.
+                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-4 text-center">

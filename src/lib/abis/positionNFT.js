@@ -232,6 +232,13 @@ export const configViewFacetAbi = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [{ internalType: 'address', name: 'asset', type: 'address' }],
+    name: 'getPoolIdForAsset',
+    outputs: [{ internalType: 'uint256', name: 'poolId', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ]
 
 export const lendingFacetAbi = [

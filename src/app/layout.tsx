@@ -12,7 +12,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "EQUALFI | SOVEREIGN_INFRASTRUCTURE",
-  description: "Oracle-Free DeFi. Zero-Rent Leverage. Sovereign Identity.",
+  description: "Cross-Margined. Zero-Rent Leverage. Sovereign Identity.",
 };
 
 export default function RootLayout({
