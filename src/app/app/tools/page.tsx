@@ -4,6 +4,7 @@ import { useAccount } from "wagmi";
 import { erc20Abi, erc721Abi, formatUnits, parseUnits, maxUint256 } from "viem";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import usePoolsConfig from "@/lib/hooks/usePoolsConfig";
+import useProtocolAddresses from "@/lib/hooks/useProtocolAddresses";
 import usePositionNFTs from "@/lib/hooks/usePositionNFTs";
 import useBufferedWriteContract from "@/lib/hooks/useBufferedWriteContract";
 import { useToasts } from "@/components/common/ToastProvider";
@@ -15,6 +16,7 @@ export default function ToolsPage() {
   const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
   const poolsConfig = usePoolsConfig();
+  const { diamondAddress, positionNFTAddress } = useProtocolAddresses();
   const { nfts } = usePositionNFTs();
 
   const [erc20Allowances, setErc20Allowances] = useState<Record<string, bigint>>({});
@@ -25,9 +27,6 @@ export default function ToolsPage() {
   const [approveModalToken, setApproveModalToken] = useState<any>(null);
   const [approveAmount, setApproveAmount] = useState("");
   const [isApproving, setIsApproving] = useState(false);
-
-  const diamondAddress = process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`;
-  const positionNftAddress = process.env.NEXT_PUBLIC_POSITION_NFT as `0x${string}`;
 
   const tokens = (poolsConfig.pools || [])
     .filter((pool: any) => pool.tokenAddress && pool.tokenAddress !== "0x0000000000000000000000000000000000000000")
@@ -86,9 +85,9 @@ export default function ToolsPage() {
           newErc20Allowances[token.address] = allowance as bigint;
         }),
         ...nftsWithTba.map(async (nft) => {
-          if (!positionNftAddress) return;
+          if (!positionNFTAddress) return;
           const approved = await publicClient.readContract({
-            address: positionNftAddress,
+            address: positionNFTAddress as `0x${string}`,
             abi: erc721Abi,
             functionName: "getApproved",
             args: [BigInt(nft.tokenId)],
@@ -115,7 +114,7 @@ export default function ToolsPage() {
       setNftApprovals({});
       setNfts([]);
     }
-  }, [isConnected, address, publicClient, nfts]);
+  }, [isConnected, address, publicClient, nfts, diamondAddress, positionNFTAddress]);
 
   // Debug: log what we're getting
   useEffect(() => {
@@ -145,11 +144,11 @@ export default function ToolsPage() {
   };
 
   const handleRevokeNft = async (tokenId: string) => {
-    if (!positionNftAddress) return;
+    if (!positionNFTAddress) return;
     setRevoking(tokenId);
     try {
       const tx = await writeContractAsync({
-        address: positionNftAddress,
+        address: positionNFTAddress as `0x${string}`,
         abi: erc721Abi,
         functionName: "approve",
         args: ["0x0000000000000000000000000000000000000000", BigInt(tokenId)],
@@ -166,8 +165,8 @@ export default function ToolsPage() {
   };
 
   const handleApproveNft = async (tokenId: string, tbaAddress: string) => {
-    console.log('[Tools] handleApproveNft called', { tokenId, tbaAddress, positionNftAddress });
-    if (!positionNftAddress) {
+    console.log('[Tools] handleApproveNft called', { tokenId, tbaAddress, positionNFTAddress });
+    if (!positionNFTAddress) {
       console.error('[Tools] No position NFT address');
       addToast({ title: "Position NFT address not configured", type: "error" });
       return;
@@ -176,7 +175,7 @@ export default function ToolsPage() {
     try {
       console.log('[Tools] Calling writeContractAsync...');
       const tx = await writeContractAsync({
-        address: positionNftAddress,
+        address: positionNFTAddress as `0x${string}`,
         abi: erc721Abi,
         functionName: "approve",
         args: [tbaAddress as `0x${string}`, BigInt(tokenId)],

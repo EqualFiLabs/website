@@ -6,6 +6,7 @@ import { communityAuctionFacetAbi } from '../abis/communityAuctionFacet'
 import useActivePublicClient from './useActivePublicClient'
 import useActiveChainId from './useActiveChainId'
 import usePoolsConfig from './usePoolsConfig'
+import useProtocolAddresses from './useProtocolAddresses'
 import usePositionNFTs from './usePositionNFTs'
 
 function useAuctions() {
@@ -13,6 +14,7 @@ function useAuctions() {
   const publicClient = useActivePublicClient()
   const activeChainId = useActiveChainId()
   const poolsConfig = usePoolsConfig()
+  const { diamondAddress } = useProtocolAddresses()
   const { nfts } = usePositionNFTs()
   const [activeTab, setActiveTab] = useState('all') // all | mine
   const [page, setPage] = useState(1)
@@ -168,13 +170,10 @@ function useAuctions() {
         setLiveAuctions({})
         return
       }
-          const getField = (entry, key, index) =>
-            entry && entry[key] !== undefined ? entry[key] : entry?.[index]
-          const updates = await Promise.all(
-            auctions.map(async (auction) => {
-          const poolA = poolMeta.byPid.get(Number(auction.poolIdA))
-          const diamondAddress =
-            (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA?.lendingPoolAddress || '').trim()
+      const getField = (entry, key, index) =>
+        entry && entry[key] !== undefined ? entry[key] : entry?.[index]
+      const updates = await Promise.all(
+        auctions.map(async (auction) => {
           if (!diamondAddress) {
             console.info('onchain auction reserves skipped: diamond address missing', {
               auctionId: auction.id,
@@ -315,7 +314,7 @@ function useAuctions() {
     return () => {
       cancelled = true
     }
-  }, [auctions, poolMeta, publicClient])
+  }, [auctions, publicClient, diamondAddress])
 
   const auctionsWithLive = useMemo(
     () =>

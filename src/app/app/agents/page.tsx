@@ -9,6 +9,8 @@ import { AppShell } from "../../app-shell";
 import { Card, Field, Input, Select, ActionButton, SectionHeader } from "../../app-components";
 import usePositionNFTs from "@/lib/hooks/usePositionNFTs";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
+import useActiveChainId from "@/lib/hooks/useActiveChainId";
+import useProtocolAddresses from "@/lib/hooks/useProtocolAddresses";
 import { useToasts } from "@/components/common/ToastProvider";
 import { positionAgentViewFacetAbi } from "@/lib/abis/positionAgentViewFacet";
 import { positionAgentTBAFacetAbi } from "@/lib/abis/positionAgentTBAFacet";
@@ -17,6 +19,7 @@ import { erc6900AccountAbi } from "@/lib/abis/erc6900Account";
 import { sessionKeyValidationModuleAbi } from "@/lib/abis/sessionKeyValidationModule";
 import { positionAgentAmmSkillModuleAbi } from "@/lib/abis/positionAgentAmmSkillModule";
 import { erc8004IdentityRegistryAbi as erc8004RegistryAbi } from "@/lib/abis/erc8004Registry";
+import { resolveFoundryAddressEnv } from "@/lib/foundryOverrides";
 
 // Skill catalog removed
 
@@ -67,14 +70,30 @@ const ACTION_PRESETS = [
 export default function AgentsPage() {
   const { nfts } = usePositionNFTs();
   const publicClient = useActivePublicClient();
+  const activeChainId = useActiveChainId();
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
+  const { diamondAddress, positionNFTAddress } = useProtocolAddresses();
 
-  const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || "").trim() as `0x${string}` | "";
-  const positionNFTAddress = (process.env.NEXT_PUBLIC_POSITION_NFT || "").trim() as `0x${string}` | "";
-  const sessionKeyModule = (process.env.NEXT_PUBLIC_SESSION_KEY_MODULE || "").trim() as `0x${string}` | "";
-  const ammSkillModule = (process.env.NEXT_PUBLIC_AMM_SKILL_MODULE || "").trim() as `0x${string}` | "";
+  const sessionKeyModule = useMemo(
+    () =>
+      resolveFoundryAddressEnv(
+        activeChainId,
+        "NEXT_PUBLIC_SESSION_KEY_MODULE",
+        "NEXT_PUBLIC_SESSION_KEY_MODULE_FOUNDRY",
+      ) as `0x${string}` | "",
+    [activeChainId],
+  );
+  const ammSkillModule = useMemo(
+    () =>
+      resolveFoundryAddressEnv(
+        activeChainId,
+        "NEXT_PUBLIC_AMM_SKILL_MODULE",
+        "NEXT_PUBLIC_AMM_SKILL_MODULE_FOUNDRY",
+      ) as `0x${string}` | "",
+    [activeChainId],
+  );
   const oldAmmSkillModule = (process.env.NEXT_PUBLIC_OLD_AMM_SKILL_MODULE || "").trim() as `0x${string}` | "";
   const identityRegistry = (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || "").trim() as `0x${string}` | "";
   const chainId = (process.env.NEXT_PUBLIC_CHAIN_ID || "").toString();
@@ -404,7 +423,7 @@ export default function AgentsPage() {
     }
     try {
       setIsDeploying(true);
-      
+
       // Step 1: Deploy TBA
       const deployTxHash = await writeContractAsync({
         address: diamondAddress,
@@ -418,7 +437,7 @@ export default function AgentsPage() {
         type: "pending",
       });
       await publicClient?.waitForTransactionReceipt({ hash: deployTxHash });
-      
+
       // Get TBA address
       const addr = await publicClient?.readContract({
         address: diamondAddress,
@@ -426,19 +445,18 @@ export default function AgentsPage() {
         functionName: "getTBAAddress",
         args: [BigInt(selectedNft)],
       }) as `0x${string}` | undefined;
-      
+
       if (!addr) {
         throw new Error("Failed to get TBA address");
       }
-      
+
       // Step 2: Approve TBA to operate the Position NFT
-      const positionNftAddress = process.env.NEXT_PUBLIC_POSITION_NFT_ADDRESS as `0x${string}`;
-      if (!positionNftAddress) {
+      if (!positionNFTAddress) {
         throw new Error("Position NFT address not configured");
       }
-      
+
       const approveTxHash = await writeContractAsync({
-        address: positionNftAddress,
+        address: positionNFTAddress as `0x${string}`,
         abi: erc721Abi,
         functionName: "approve",
         args: [addr, BigInt(selectedNft)],
@@ -449,7 +467,7 @@ export default function AgentsPage() {
         type: "pending",
       });
       await publicClient?.waitForTransactionReceipt({ hash: approveTxHash });
-      
+
       setTbaAddress(addr);
       setTbaDeployed(true);
       addToast({ title: "TBA deployed and approved", type: "success" });
@@ -494,7 +512,7 @@ export default function AgentsPage() {
         if (sessionModuleKey) {
           window.localStorage.setItem(sessionModuleKey, "1");
         }
-      } catch {}
+      } catch { }
       addToast({ title: "Session key module installed", type: "success" });
     } catch (err) {
       console.error(err);
@@ -871,416 +889,424 @@ export default function AgentsPage() {
 
   return (
     <AppShell title="Position Agents">
-      <div
-        className="flex items-center justify-between gap-4 rounded-2xl border border-accent1/30 bg-accent1/5 px-5 py-3 text-sm font-mono text-accent1"
-      >
-        <a href="/skills/equalfi-amm.zip" download className="flex flex-col gap-1 hover:underline">
-          <span>↓ Download OpenClaw AMM Agent Skill</span>
-          <code className="text-xs text-accent1/60">curl -LO https://equalfi.org/skills/equalfi-amm.zip</code>
-        </a>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            navigator.clipboard.writeText("curl -LO https://equalfi.org/skills/equalfi-amm.zip");
-          }}
-          className="shrink-0 p-1.5 rounded-lg hover:bg-accent1/20 transition-colors"
-          title="Copy curl command"
+      <div className="mx-auto w-full max-w-[1600px] space-y-8 pointer-events-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-neutral1">TBA Agents</h1>
+            <p className="text-neutral2">Position NFT Token Bound Accounts config and permissions.</p>
+          </div>
+        </div>
+        <div
+          className="flex items-center justify-between gap-4 rounded-2xl border border-accent1/30 bg-accent1/5 px-5 py-3 text-sm font-mono text-accent1"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <rect x="9" y="9" width="13" height="13" rx="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-        </button>
-      </div>
-      <div className="space-y-10">
-        <section className="grid gap-6">
-          <Card>
-            <SectionHeader title="AGENT SETUP" subtitle="Position NFT binding" />
-            <div className="mt-6 space-y-4">
-              <Field label="Position NFT">
-                <Select value={selectedNft} onChange={(e: any) => setSelectedNft(e.target.value)}>
-                  <option value="">Select Position</option>
-                  {positionOptions.map((entry: any) => (
-                    <option key={entry.tokenId} value={String(entry.tokenId)}>
-                      #{entry.tokenId} · {entry.poolCount || 0} pools
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+          <a href="/skills/equalfi-amm.zip" download className="flex flex-col gap-1 hover:underline">
+            <span>↓ Download OpenClaw AMM Agent Skill</span>
+            <code className="text-xs text-accent1/60">curl -LO https://equalfi.org/skills/equalfi-amm.zip</code>
+          </a>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              navigator.clipboard.writeText("curl -LO https://equalfi.org/skills/equalfi-amm.zip");
+            }}
+            className="shrink-0 p-1.5 rounded-lg hover:bg-accent1/20 transition-colors"
+            title="Copy curl command"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
+        </div>
+        <div className="space-y-10">
+          <section className="grid gap-6">
+            <Card>
+              <SectionHeader title="AGENT SETUP" subtitle="Position NFT binding" />
+              <div className="mt-6 space-y-4">
+                <Field label="Position NFT">
+                  <Select value={selectedNft} onChange={(e: any) => setSelectedNft(e.target.value)}>
+                    <option value="">Select Position</option>
+                    {positionOptions.map((entry: any) => (
+                      <option key={entry.tokenId} value={String(entry.tokenId)}>
+                        #{entry.tokenId} · {entry.poolCount || 0} pools
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
 
-              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
-                Identity Registry: <span className="text-white">{identityRegistry || 'Not set'}</span>
+                <div className="rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-xs font-mono text-neutral2">
+                  Identity Registry: <span className="text-neutral1">{identityRegistry || 'Not set'}</span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-xs font-mono text-neutral2">
+                    TBA: <span className="text-neutral1">{tbaDeployed ? "Deployed" : "Not Deployed"}</span>
+                    {tbaAddress && (
+                      <div className="mt-1 flex items-center gap-2 text-[10px] text-neutral3">
+                        <span className="truncate" title={tbaAddress}>
+                          {truncateAddress(tbaAddress)}
+                        </span>
+                        <span
+                          onClick={() => handleCopy(tbaAddress)}
+                          className="cursor-pointer text-neutral3 hover:text-accent1 transition-colors"
+                          role="button"
+                          tabIndex={0}
+                          aria-label="Copy TBA address"
+                          onKeyDown={(e: any) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleCopy(tbaAddress);
+                            }
+                          }}
+                        >
+                          ⧉
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-xs font-mono text-neutral2">
+                    Agent ID: <span className="text-neutral1">{agentId !== null ? agentId.toString() : "Not Registered"}</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ActionButton disabled={isDeploying} onClick={handleDeployTba}>
+                    {isDeploying ? "Deploying…" : "DEPLOY ERC-6551 TBA"}
+                  </ActionButton>
+                  <ActionButton disabled={isRegisteringAgent} onClick={handleRegisterAgent}>
+                    {isRegisteringAgent ? "Registering…" : "REGISTER ERC-8004 AGENT"}
+                  </ActionButton>
+                </div>
               </div>
+            </Card>
+          </section>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+          <section className="grid gap-6 lg:grid-cols-2 min-w-0">
+            <Card>
+              <SectionHeader title="SESSION KEYS" subtitle="Policy builder" />
+              <div className="mt-6 space-y-4">
                 <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
-                  TBA: <span className="text-white">{tbaDeployed ? "Deployed" : "Not Deployed"}</span>
-                  {tbaAddress && (
-                    <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-500">
-                      <span className="truncate" title={tbaAddress}>
-                        {truncateAddress(tbaAddress)}
-                      </span>
-                      <span
-                        onClick={() => handleCopy(tbaAddress)}
-                        className="cursor-pointer text-gray-500 hover:text-mint"
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Copy TBA address"
-                        onKeyDown={(e: any) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleCopy(tbaAddress);
-                          }
-                        }}
-                      >
-                        ⧉
+                  Need a session key? Run:
+                  <div className="mt-2 select-text text-xs font-mono text-white">
+                    pnpm dlx @equalfi/ski
+                  </div>
+                  <div className="mt-1 text-[10px] text-gray-500">
+                    Generates a local session EOA and stores it in your OS keychain.
+                  </div>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                  SessionKeyValidationModule:
+                  <div className="mt-1 text-[10px] text-gray-500">
+                    {sessionKeyModule || "Not set"}
+                  </div>
+                  <div className="mt-1 text-[10px] text-gray-500">
+                    Installed: {sessionModuleInstalled === null ? "Unknown" : sessionModuleInstalled ? "Yes" : "No"}
+                  </div>
+                </div>
+                <Field label="Validation Entity ID">
+                  <Input value={entityId} onChange={(e: any) => setEntityId(e.target.value)} />
+                </Field>
+                <ActionButton disabled={isInstalling || sessionModuleInstalled === true} onClick={handleInstallSessionKey}>
+                  {sessionModuleInstalled === true
+                    ? "Session Key Module Installed"
+                    : isInstalling
+                      ? "Installing…"
+                      : "Install Session Key Module"}
+                </ActionButton>
+
+                <Field label="Session Key Address">
+                  <Input
+                    placeholder="0x..."
+                    value={sessionKey}
+                    onChange={(e: any) => setSessionKey(e.target.value)}
+                  />
+                </Field>
+                <Field label="Allowed Targets (comma-separated)">
+                  <Input
+                    placeholder={diamondAddress || "0x..."}
+                    value={allowedTargetsInput}
+                    onChange={(e: any) => setAllowedTargetsInput(e.target.value)}
+                  />
+                </Field>
+
+                <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
+                  <div className="text-white">AMM Skill Template</div>
+                  <div className="mt-1 text-[10px] text-gray-500">
+                    Two inputs only. We install the AMM module, set its policy, and then create a session-key policy with the required selectors.
+                  </div>
+                  <div className="mt-2 text-[10px] text-gray-500">
+                    Module: {ammSkillModule || "Not set"}
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="AMM Max Reserve (raw units)">
+                    <Input value={ammMaxReserve} onChange={(e: any) => setAmmMaxReserve(e.target.value)} />
+                  </Field>
+                  <Field label="Session TTL (seconds)">
+                    <Input value={ammTtlSeconds} onChange={(e: any) => setAmmTtlSeconds(e.target.value)} />
+                  </Field>
+                </div>
+                <p className="text-xs text-neutral3 mb-2">This will require 4 wallet confirmations: install module, configure skill, set policies, and enable session key.</p>
+                <ActionButton disabled={isInstallingAmm} onClick={handleApplyAmmTemplate}>
+                  {isInstallingAmm ? "Applying AMM Template…" : "Apply AMM Skill Template"}
+                </ActionButton>
+
+                <div className="mt-4 pt-4 border-t border-surface2">
+                  <p className="text-xs text-neutral3 mb-3">Or run individual steps:</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      onClick={async () => {
+                        if (!ammSkillModule || !tbaAddress || !publicClient) return;
+                        try {
+                          const manifest = await publicClient.readContract({
+                            address: ammSkillModule,
+                            abi: positionAgentAmmSkillModuleAbi,
+                            functionName: "executionManifest",
+                          });
+                          const tx = await writeContractAsync({
+                            address: tbaAddress,
+                            abi: erc6900AccountAbi,
+                            functionName: "installExecution",
+                            args: [ammSkillModule, manifest, "0x"],
+                          });
+                          addToast({ title: "Installing module", type: "pending" });
+                          await publicClient.waitForTransactionReceipt({ hash: tx });
+                          addToast({ title: "Module installed", type: "success" });
+                        } catch (err: any) {
+                          addToast({ title: "Install failed", description: err?.message?.slice(0, 100), type: "error" });
+                        }
+                      }}
+                      disabled={!tbaAddress || !ammSkillModule}
+                      className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                    >
+                      1. Install Module
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!tbaAddress || !diamondAddress || !publicClient) return;
+                        try {
+                          const tx = await writeContractAsync({
+                            address: tbaAddress,
+                            abi: positionAgentAmmSkillModuleAbi,
+                            functionName: "setDiamond",
+                            args: [diamondAddress],
+                          });
+                          addToast({ title: "Setting Diamond", type: "pending" });
+                          await publicClient.waitForTransactionReceipt({ hash: tx });
+                          addToast({ title: "Diamond configured", type: "success" });
+                        } catch (err: any) {
+                          addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
+                        }
+                      }}
+                      disabled={!tbaAddress || !diamondAddress}
+                      className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                    >
+                      2. Set Diamond
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!tbaAddress || !publicClient) return;
+                        try {
+                          const maxReserve = parseUint(ammMaxReserve);
+                          const ttlSeconds = parseUint(ammTtlSeconds);
+                          const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
+                          const policy = {
+                            enabled: true,
+                            allowCancel: true,
+                            allowFinalize: true,
+                            allowAddLiquidity: true,
+                            allowCommunityJoin: true,
+                            enforcePoolAllowlist: false,
+                            minDuration: 0,
+                            maxDuration: ttlNumber,
+                            minFeeBps: 0,
+                            maxFeeBps: 0,
+                            minReserveA: BigInt(0),
+                            maxReserveA: maxReserve,
+                            minReserveB: BigInt(0),
+                            maxReserveB: maxReserve,
+                          };
+                          const tx1 = await writeContractAsync({
+                            address: tbaAddress,
+                            abi: positionAgentAmmSkillModuleAbi,
+                            functionName: "setAuctionPolicy",
+                            args: [policy],
+                          });
+                          addToast({ title: "Setting auction policy", type: "pending" });
+                          await publicClient.waitForTransactionReceipt({ hash: tx1 });
+
+                          const rollPolicy = { enabled: true, enforcePoolAllowlist: false };
+                          const tx2 = await writeContractAsync({
+                            address: tbaAddress,
+                            abi: positionAgentAmmSkillModuleAbi,
+                            functionName: "setRollPolicy",
+                            args: [rollPolicy],
+                          });
+                          await publicClient.waitForTransactionReceipt({ hash: tx2 });
+                          addToast({ title: "Policies configured", type: "success" });
+                        } catch (err: any) {
+                          addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
+                        }
+                      }}
+                      disabled={!tbaAddress}
+                      className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                    >
+                      3. Set Policies
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!tbaAddress || !sessionKeyModule || !sessionKey || !publicClient) return;
+                        try {
+                          const entity = Number(entityId || 0);
+                          const now = Math.floor(Date.now() / 1000);
+                          const ttlSeconds = parseUint(ammTtlSeconds);
+                          const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
+                          const validUntilValue = ttlNumber > 0 ? BigInt(now + ttlNumber) : BigInt(0);
+                          const tx = await writeContractAsync({
+                            address: sessionKeyModule,
+                            abi: sessionKeyValidationModuleAbi,
+                            functionName: "setSessionKeyPolicy",
+                            args: [
+                              tbaAddress,
+                              entity,
+                              sessionKey,
+                              0,
+                              validUntilValue,
+                              BigInt(0),
+                              BigInt(0),
+                              [],
+                              AMM_ACTION_SELECTORS as `0x${string}`[],
+                              [],
+                            ],
+                          });
+                          addToast({ title: "Setting session policy", type: "pending" });
+                          await publicClient.waitForTransactionReceipt({ hash: tx });
+                          addToast({ title: "Session policy configured", type: "success" });
+                        } catch (err: any) {
+                          addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
+                        }
+                      }}
+                      disabled={!tbaAddress || !sessionKeyModule || !sessionKey}
+                      className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
+                    >
+                      4. Set Session Policy
+                    </button>
+                  </div>
+                </div>
+
+                <Field label="Valid From (unix seconds)">
+                  <Input
+                    placeholder="0"
+                    value={validFrom}
+                    onChange={(e: any) => setValidFrom(e.target.value)}
+                  />
+                </Field>
+                <Field label="Valid Until (unix seconds)">
+                  <Input
+                    placeholder="0"
+                    value={validUntil}
+                    onChange={(e: any) => setValidUntil(e.target.value)}
+                  />
+                </Field>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Max Value Per Call (wei)">
+                    <Input value={valueLimit} onChange={(e: any) => setValueLimit(e.target.value)} />
+                  </Field>
+                  <Field label="Cumulative Value Limit (wei)">
+                    <Input value={budget} onChange={(e: any) => setBudget(e.target.value)} />
+                  </Field>
+                </div>
+                <Field label="Allowed Actions">
+                  <div className="grid gap-3">
+                    {ACTION_PRESETS.map((preset: any) => (
+                      <label key={preset.id} className="flex items-start gap-3 text-xs text-neutral2">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={selectedActions.includes(preset.id)}
+                          onChange={(e: any) => {
+                            setSelectedActions((prev: any) =>
+                              e.target.checked
+                                ? [...prev, preset.id]
+                                : prev.filter((item: any) => item !== preset.id),
+                            );
+                          }}
+                        />
+                        <div className="space-y-1">
+                          <div className="text-white">{preset.label}</div>
+                          <div className="text-[10px] text-neutral3">{preset.description}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+
+                <ActionButton disabled={isCreatingKey} onClick={handleCreateSessionKey}>
+                  {isCreatingKey ? "Creating…" : "Create Session Key"}
+                </ActionButton>
+              </div>
+            </Card>
+
+            <Card>
+              <SectionHeader title="POLICY PREVIEW" subtitle="JSON draft" />
+              <pre className="mt-6 text-xs text-neutral2 bg-surface2/50 border border-surface3 rounded-2xl p-4 overflow-auto max-w-full break-all whitespace-pre-wrap">
+                {JSON.stringify(policyPreview, null, 2)}
+              </pre>
+            </Card>
+          </section>
+
+          <section>
+            <div className="mb-4">
+              <SectionHeader title="ACTIVE SESSION KEYS" subtitle="Tracked policies" />
+            </div>
+            <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <Input
+                placeholder="Track a session key address"
+                value={trackedKeyInput}
+                onChange={(e: any) => setTrackedKeyInput(e.target.value)}
+              />
+              <ActionButton onClick={handleTrackKey}>Track</ActionButton>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {trackedKeys.length === 0 && (
+                <div className="rounded-2xl border border-surface3 bg-surface2 p-4 text-xs font-mono text-neutral2">
+                  No tracked session keys yet.
+                </div>
+              )}
+              {trackedKeys.map((key: any) => {
+                const policy = trackedPolicies[key];
+                const now = Math.floor(Date.now() / 1000);
+                const isActive = policy?.active && (!policy?.validUntil || Number(policy.validUntil) === 0 || Number(policy.validUntil) >= now);
+                return (
+                  <div
+                    key={key}
+                    className="rounded-2xl border border-surface3 bg-surface2 p-4 text-xs font-mono text-neutral2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-white">{truncateAddress(key)}</span>
+                      <span className="uppercase tracking-[0.2em] text-[10px]">
+                        {policy?.error ? "Error" : isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
-                  )}
-                </div>
-                <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
-                  Agent ID: <span className="text-white">{agentId !== null ? agentId.toString() : "Not Registered"}</span>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <ActionButton disabled={isDeploying} onClick={handleDeployTba}>
-                  {isDeploying ? "Deploying…" : "DEPLOY ERC-6551 TBA"}
-                </ActionButton>
-                <ActionButton disabled={isRegisteringAgent} onClick={handleRegisterAgent}>
-                  {isRegisteringAgent ? "Registering…" : "REGISTER ERC-8004 AGENT"}
-                </ActionButton>
-              </div>
+                    <div className="mt-3 space-y-1">
+                      <div>Valid After: {formatTimestamp(policy?.validAfter)}</div>
+                      <div>Valid Until: {formatTimestamp(policy?.validUntil)}</div>
+                      <div>Max Value: {formatBigInt(policy?.maxValuePerCall)}</div>
+                      <div>Cumulative Limit: {formatBigInt(policy?.cumulativeValueLimit)}</div>
+                      <div>Used: {formatBigInt(policy?.cumulativeValueUsed)}</div>
+                      <div>Selectors: {formatBigInt(policy?.selectorCount)}</div>
+                    </div>
+                    <div className="mt-4">
+                      <ActionButton disabled={isRevoking === key} onClick={() => handleRevokeKey(key)}>
+                        {isRevoking === key ? "Revoking…" : "Revoke"}
+                      </ActionButton>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </Card>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2 min-w-0">
-          <Card>
-            <SectionHeader title="SESSION KEYS" subtitle="Policy builder" />
-            <div className="mt-6 space-y-4">
-              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
-                Need a session key? Run:
-                <div className="mt-2 select-text text-xs font-mono text-white">
-                  pnpm dlx @equalfi/ski
-                </div>
-                <div className="mt-1 text-[10px] text-gray-500">
-                  Generates a local session EOA and stores it in your OS keychain.
-                </div>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
-                SessionKeyValidationModule:
-                <div className="mt-1 text-[10px] text-gray-500">
-                  {sessionKeyModule || "Not set"}
-                </div>
-                <div className="mt-1 text-[10px] text-gray-500">
-                  Installed: {sessionModuleInstalled === null ? "Unknown" : sessionModuleInstalled ? "Yes" : "No"}
-                </div>
-              </div>
-              <Field label="Validation Entity ID">
-                <Input value={entityId} onChange={(e: any) => setEntityId(e.target.value)} />
-              </Field>
-              <ActionButton disabled={isInstalling || sessionModuleInstalled === true} onClick={handleInstallSessionKey}>
-                {sessionModuleInstalled === true
-                  ? "Session Key Module Installed"
-                  : isInstalling
-                    ? "Installing…"
-                    : "Install Session Key Module"}
-              </ActionButton>
-
-              <Field label="Session Key Address">
-                <Input
-                  placeholder="0x..."
-                  value={sessionKey}
-                  onChange={(e: any) => setSessionKey(e.target.value)}
-                />
-              </Field>
-              <Field label="Allowed Targets (comma-separated)">
-                <Input
-                  placeholder={diamondAddress || "0x..."}
-                  value={allowedTargetsInput}
-                  onChange={(e: any) => setAllowedTargetsInput(e.target.value)}
-                />
-              </Field>
-
-              <div className="rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-xs font-mono text-gray-400">
-                <div className="text-white">AMM Skill Template</div>
-                <div className="mt-1 text-[10px] text-gray-500">
-                  Two inputs only. We install the AMM module, set its policy, and then create a session-key policy with the required selectors.
-                </div>
-                <div className="mt-2 text-[10px] text-gray-500">
-                  Module: {ammSkillModule || "Not set"}
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="AMM Max Reserve (raw units)">
-                  <Input value={ammMaxReserve} onChange={(e: any) => setAmmMaxReserve(e.target.value)} />
-                </Field>
-                <Field label="Session TTL (seconds)">
-                  <Input value={ammTtlSeconds} onChange={(e: any) => setAmmTtlSeconds(e.target.value)} />
-                </Field>
-              </div>
-              <p className="text-xs text-neutral3 mb-2">This will require 4 wallet confirmations: install module, configure skill, set policies, and enable session key.</p>
-              <ActionButton disabled={isInstallingAmm} onClick={handleApplyAmmTemplate}>
-                {isInstallingAmm ? "Applying AMM Template…" : "Apply AMM Skill Template"}
-              </ActionButton>
-              
-              <div className="mt-4 pt-4 border-t border-surface2">
-                <p className="text-xs text-neutral3 mb-3">Or run individual steps:</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    onClick={async () => {
-                      if (!ammSkillModule || !tbaAddress || !publicClient) return;
-                      try {
-                        const manifest = await publicClient.readContract({
-                          address: ammSkillModule,
-                          abi: positionAgentAmmSkillModuleAbi,
-                          functionName: "executionManifest",
-                        });
-                        const tx = await writeContractAsync({
-                          address: tbaAddress,
-                          abi: erc6900AccountAbi,
-                          functionName: "installExecution",
-                          args: [ammSkillModule, manifest, "0x"],
-                        });
-                        addToast({ title: "Installing module", type: "pending" });
-                        await publicClient.waitForTransactionReceipt({ hash: tx });
-                        addToast({ title: "Module installed", type: "success" });
-                      } catch (err: any) {
-                        addToast({ title: "Install failed", description: err?.message?.slice(0, 100), type: "error" });
-                      }
-                    }}
-                    disabled={!tbaAddress || !ammSkillModule}
-                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
-                  >
-                    1. Install Module
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!tbaAddress || !diamondAddress || !publicClient) return;
-                      try {
-                        const tx = await writeContractAsync({
-                          address: tbaAddress,
-                          abi: positionAgentAmmSkillModuleAbi,
-                          functionName: "setDiamond",
-                          args: [diamondAddress],
-                        });
-                        addToast({ title: "Setting Diamond", type: "pending" });
-                        await publicClient.waitForTransactionReceipt({ hash: tx });
-                        addToast({ title: "Diamond configured", type: "success" });
-                      } catch (err: any) {
-                        addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
-                      }
-                    }}
-                    disabled={!tbaAddress || !diamondAddress}
-                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
-                  >
-                    2. Set Diamond
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!tbaAddress || !publicClient) return;
-                      try {
-                        const maxReserve = parseUint(ammMaxReserve);
-                        const ttlSeconds = parseUint(ammTtlSeconds);
-                        const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
-                        const policy = {
-                          enabled: true,
-                          allowCancel: true,
-                          allowFinalize: true,
-                          allowAddLiquidity: true,
-                          allowCommunityJoin: true,
-                          enforcePoolAllowlist: false,
-                          minDuration: 0,
-                          maxDuration: ttlNumber,
-                          minFeeBps: 0,
-                          maxFeeBps: 0,
-                          minReserveA: BigInt(0),
-                          maxReserveA: maxReserve,
-                          minReserveB: BigInt(0),
-                          maxReserveB: maxReserve,
-                        };
-                        const tx1 = await writeContractAsync({
-                          address: tbaAddress,
-                          abi: positionAgentAmmSkillModuleAbi,
-                          functionName: "setAuctionPolicy",
-                          args: [policy],
-                        });
-                        addToast({ title: "Setting auction policy", type: "pending" });
-                        await publicClient.waitForTransactionReceipt({ hash: tx1 });
-                        
-                        const rollPolicy = { enabled: true, enforcePoolAllowlist: false };
-                        const tx2 = await writeContractAsync({
-                          address: tbaAddress,
-                          abi: positionAgentAmmSkillModuleAbi,
-                          functionName: "setRollPolicy",
-                          args: [rollPolicy],
-                        });
-                        await publicClient.waitForTransactionReceipt({ hash: tx2 });
-                        addToast({ title: "Policies configured", type: "success" });
-                      } catch (err: any) {
-                        addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
-                      }
-                    }}
-                    disabled={!tbaAddress}
-                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
-                  >
-                    3. Set Policies
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!tbaAddress || !sessionKeyModule || !sessionKey || !publicClient) return;
-                      try {
-                        const entity = Number(entityId || 0);
-                        const now = Math.floor(Date.now() / 1000);
-                        const ttlSeconds = parseUint(ammTtlSeconds);
-                        const ttlNumber = ttlSeconds > BigInt(0) ? Number(ttlSeconds) : 0;
-                        const validUntilValue = ttlNumber > 0 ? BigInt(now + ttlNumber) : BigInt(0);
-                        const tx = await writeContractAsync({
-                          address: sessionKeyModule,
-                          abi: sessionKeyValidationModuleAbi,
-                          functionName: "setSessionKeyPolicy",
-                          args: [
-                            tbaAddress,
-                            entity,
-                            sessionKey,
-                            0,
-                            validUntilValue,
-                            BigInt(0),
-                            BigInt(0),
-                            [],
-                            AMM_ACTION_SELECTORS as `0x${string}`[],
-                            [],
-                          ],
-                        });
-                        addToast({ title: "Setting session policy", type: "pending" });
-                        await publicClient.waitForTransactionReceipt({ hash: tx });
-                        addToast({ title: "Session policy configured", type: "success" });
-                      } catch (err: any) {
-                        addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
-                      }
-                    }}
-                    disabled={!tbaAddress || !sessionKeyModule || !sessionKey}
-                    className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
-                  >
-                    4. Set Session Policy
-                  </button>
-                </div>
-              </div>
-              
-              <Field label="Valid From (unix seconds)">
-                <Input
-                  placeholder="0"
-                  value={validFrom}
-                  onChange={(e: any) => setValidFrom(e.target.value)}
-                />
-              </Field>
-              <Field label="Valid Until (unix seconds)">
-                <Input
-                  placeholder="0"
-                  value={validUntil}
-                  onChange={(e: any) => setValidUntil(e.target.value)}
-                />
-              </Field>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Max Value Per Call (wei)">
-                  <Input value={valueLimit} onChange={(e: any) => setValueLimit(e.target.value)} />
-                </Field>
-                <Field label="Cumulative Value Limit (wei)">
-                  <Input value={budget} onChange={(e: any) => setBudget(e.target.value)} />
-                </Field>
-              </div>
-              <Field label="Allowed Actions">
-                <div className="grid gap-3">
-                  {ACTION_PRESETS.map((preset: any) => (
-                    <label key={preset.id} className="flex items-start gap-3 text-xs text-gray-400">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5"
-                        checked={selectedActions.includes(preset.id)}
-                        onChange={(e: any) => {
-                          setSelectedActions((prev: any) =>
-                            e.target.checked
-                              ? [...prev, preset.id]
-                              : prev.filter((item: any) => item !== preset.id),
-                          );
-                        }}
-                      />
-                      <div className="space-y-1">
-                        <div className="text-white">{preset.label}</div>
-                        <div className="text-[10px] text-gray-500">{preset.description}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </Field>
-
-              <ActionButton disabled={isCreatingKey} onClick={handleCreateSessionKey}>
-                {isCreatingKey ? "Creating…" : "Create Session Key"}
-              </ActionButton>
-            </div>
-          </Card>
-
-          <Card>
-            <SectionHeader title="POLICY PREVIEW" subtitle="JSON draft" />
-            <pre className="mt-6 text-xs text-gray-400 bg-black/60 border border-white/10 rounded-lg p-4 overflow-auto max-w-full break-all whitespace-pre-wrap">
-{JSON.stringify(policyPreview, null, 2)}
-            </pre>
-          </Card>
-        </section>
-
-        <section>
-          <div className="mb-4">
-            <SectionHeader title="ACTIVE SESSION KEYS" subtitle="Tracked policies" />
-          </div>
-          <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <Input
-              placeholder="Track a session key address"
-              value={trackedKeyInput}
-              onChange={(e: any) => setTrackedKeyInput(e.target.value)}
-            />
-            <ActionButton onClick={handleTrackKey}>Track</ActionButton>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {trackedKeys.length === 0 && (
-              <div className="rounded-xl border border-white/10 bg-black/40 p-4 text-xs font-mono text-gray-400">
-                No tracked session keys yet.
-              </div>
-            )}
-            {trackedKeys.map((key: any) => {
-              const policy = trackedPolicies[key];
-              const now = Math.floor(Date.now() / 1000);
-              const isActive = policy?.active && (!policy?.validUntil || Number(policy.validUntil) === 0 || Number(policy.validUntil) >= now);
-              return (
-                <div
-                  key={key}
-                  className="rounded-xl border border-white/10 bg-black/40 p-4 text-xs font-mono text-gray-400"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-white">{truncateAddress(key)}</span>
-                    <span className="uppercase tracking-[0.2em] text-[10px]">
-                      {policy?.error ? "Error" : isActive ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <div>Valid After: {formatTimestamp(policy?.validAfter)}</div>
-                    <div>Valid Until: {formatTimestamp(policy?.validUntil)}</div>
-                    <div>Max Value: {formatBigInt(policy?.maxValuePerCall)}</div>
-                    <div>Cumulative Limit: {formatBigInt(policy?.cumulativeValueLimit)}</div>
-                    <div>Used: {formatBigInt(policy?.cumulativeValueUsed)}</div>
-                    <div>Selectors: {formatBigInt(policy?.selectorCount)}</div>
-                  </div>
-                  <div className="mt-4">
-                    <ActionButton disabled={isRevoking === key} onClick={() => handleRevokeKey(key)}>
-                      {isRevoking === key ? "Revoking…" : "Revoke"}
-                    </ActionButton>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </AppShell>
   );

@@ -1,5 +1,4 @@
 "use client";
-import type { PoolConfig, Auction, PositionNFT, ParticipatingPosition } from '@/types'
 
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useWatchAsset } from "wagmi";
@@ -9,8 +8,7 @@ import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import { faucetAbi } from "@/lib/abis/faucet";
 import { AppShell } from "../../app-shell";
 import { useToasts } from "@/components/common/ToastProvider";
-import { resolvePoolsConfig } from "@/lib/poolsConfig";
-import useActiveChainId from "@/lib/hooks/useActiveChainId";
+import useProtocolAddresses from "@/lib/hooks/useProtocolAddresses";
 
 interface TokenInfo {
   address: `0x${string}`;
@@ -39,9 +37,8 @@ export default function FaucetPage() {
   const { address, isConnected } = useAccount();
   const { writeContractAsync, isPending } = useBufferedWriteContract();
   const { watchAsset } = useWatchAsset();
-  const chainId = useActiveChainId();
-  const poolsConfig = resolvePoolsConfig(chainId);
-  const FAUCET_ADDRESS = poolsConfig?.faucetAddress as `0x${string}` | undefined;
+  const { faucetAddress } = useProtocolAddresses();
+  const FAUCET_ADDRESS = faucetAddress as `0x${string}` | undefined;
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [lastClaimAt, setLastClaimAt] = useState<bigint>(BigInt(0));
@@ -258,7 +255,10 @@ export default function FaucetPage() {
             <div className="text-4xl mb-4">💧</div>
             <h2 className="text-xl font-semibold text-neutral1 mb-2">Faucet Not Configured</h2>
             <p className="text-neutral3 text-sm">
-              Set <code className="bg-surface2 px-2 py-1 rounded">NEXT_PUBLIC_FAUCET_ADDRESS</code> in your environment.
+              Set <code className="bg-surface2 px-2 py-1 rounded">faucetAddress</code> in
+              <code className="bg-surface2 px-2 py-1 rounded ml-1">NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY</code>
+              or
+              <code className="bg-surface2 px-2 py-1 rounded ml-1">NEXT_PUBLIC_POOLS_CONFIG_TESTNET</code>.
             </p>
           </div>
         </div>

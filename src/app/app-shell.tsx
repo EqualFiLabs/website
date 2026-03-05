@@ -29,7 +29,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
   }, [mobileMenuOpen]);
 
   return (
-    <div className="min-h-screen grid-bg bg-surface1 text-neutral1 flex flex-col md:flex-row overflow-hidden font-mono">
+    <div className="min-h-screen flex flex-col md:flex-row overflow-hidden font-mono">
       {/* SIDEBAR - DESKTOP */}
       <aside className="hidden md:flex flex-col w-64 border-r border-white/10 bg-black/80 backdrop-blur-xl h-screen sticky top-0 shrink-0 z-40">
         <div className="h-20 flex flex-col justify-center px-6 border-b border-white/10 shrink-0">

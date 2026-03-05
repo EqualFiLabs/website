@@ -8,6 +8,7 @@ import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { useToasts } from '../common/ToastProvider'
 import useActivePublicClient from '@/lib/hooks/useActivePublicClient'
 import usePoolsConfig from '@/lib/hooks/usePoolsConfig'
+import useProtocolAddresses from '@/lib/hooks/useProtocolAddresses'
 import useExplorerUrl from '@/lib/hooks/useExplorerUrl'
 import { ammAuctionFacetAbi } from '@/lib/abis/ammAuctionFacet'
 
@@ -29,6 +30,7 @@ function SoloAddLiquidityModal({ isOpen, auction, onClose, onSuccess }) {
   const publicClient = useActivePublicClient()
   const { writeContractAsync } = useBufferedWriteContract()
   const poolsConfig = usePoolsConfig()
+  const { diamondAddress } = useProtocolAddresses()
   const { buildTxUrl } = useExplorerUrl()
 
   useEffect(() => {
@@ -96,10 +98,6 @@ function SoloAddLiquidityModal({ isOpen, auction, onClose, onSuccess }) {
       if (!computed?.amountARaw || !computed?.amountBRaw) throw new Error('Enter an amount')
       if (computed.amountARaw <= BigInt(0) || computed.amountBRaw <= BigInt(0)) throw new Error('Enter amounts above zero')
 
-      const poolA = poolsConfig.pools.find((pool) => Number(pool.pid) === Number(auction.poolIdA))
-      if (!poolA) throw new Error('Pool config missing for auction')
-      const diamondAddress =
-        (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA.lendingPoolAddress || '').trim()
       if (!diamondAddress) throw new Error('Diamond address missing from config')
 
       txHash = await writeContractAsync({

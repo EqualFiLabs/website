@@ -8,6 +8,7 @@ import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { useToasts } from '../common/ToastProvider'
 import useActivePublicClient from '@/lib/hooks/useActivePublicClient'
 import usePoolsConfig from '@/lib/hooks/usePoolsConfig'
+import useProtocolAddresses from '@/lib/hooks/useProtocolAddresses'
 import usePositionNFTs from '@/lib/hooks/usePositionNFTs'
 import useExplorerUrl from '@/lib/hooks/useExplorerUrl'
 import { communityAuctionFacetAbi } from '@/lib/abis/communityAuctionFacet'
@@ -25,6 +26,7 @@ function JoinModal({ isOpen, auction, onClose }) {
   const { writeContractAsync } = useBufferedWriteContract()
   const { nfts } = usePositionNFTs()
   const poolsConfig = usePoolsConfig()
+  const { diamondAddress } = useProtocolAddresses()
   const { buildTxUrl } = useExplorerUrl()
 
   useEffect(() => {
@@ -42,9 +44,6 @@ function JoinModal({ isOpen, auction, onClose }) {
     let cancelled = false
     const loadTotalShares = async () => {
       if (!auction || auction.type !== 'community' || !publicClient) return
-      const poolA = poolsConfig.pools.find((pool) => Number(pool.pid) === Number(auction.poolIdA))
-      const diamondAddress =
-        (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA?.lendingPoolAddress || '').trim()
       if (!diamondAddress) return
       try {
         const community = await publicClient.readContract({
@@ -67,7 +66,7 @@ function JoinModal({ isOpen, auction, onClose }) {
     return () => {
       cancelled = true
     }
-  }, [auction, publicClient, poolsConfig])
+  }, [auction, publicClient, diamondAddress])
 
   const computeAmounts = useMemo(() => {
     if (!auction || !amountA) return null
@@ -132,8 +131,6 @@ function JoinModal({ isOpen, auction, onClose }) {
       const amountBRaw = parseUnits(amountB || '0', poolB.decimals ?? 18)
       if (amountARaw <= BigInt(0) || amountBRaw <= BigInt(0)) throw new Error('Enter amounts above zero')
 
-      const diamondAddress =
-        (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA.lendingPoolAddress || '').trim()
       if (!diamondAddress) throw new Error('Diamond address missing from config')
 
       const txHash = await writeContractAsync({

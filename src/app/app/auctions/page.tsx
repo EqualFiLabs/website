@@ -1,5 +1,5 @@
 "use client";
-import type { PoolConfig, Auction, PositionNFT, TokenInfo, ParticipatingPosition } from '@/types'
+import type { Auction, PositionNFT, ParticipatingPosition } from '@/types'
 
 import { useState, useMemo, useEffect } from 'react'
 import { useAccount } from 'wagmi'
@@ -15,7 +15,7 @@ import SoloAddLiquidityModal from '@/components/pool/SoloAddLiquidityModal'
 import ExitModal from '@/components/pool/ExitModal'
 import ConfirmationModal from '@/components/common/ConfirmationModal'
 import { useToasts } from '@/components/common/ToastProvider'
-import usePoolsConfig from '@/lib/hooks/usePoolsConfig'
+import useProtocolAddresses from '@/lib/hooks/useProtocolAddresses'
 import useExplorerUrl from '@/lib/hooks/useExplorerUrl'
 import { ammAuctionFacetAbi } from '@/lib/abis/ammAuctionFacet'
 import { communityAuctionFacetAbi } from '@/lib/abis/communityAuctionFacet'
@@ -35,7 +35,7 @@ function AuctionManagementPage() {
     refresh()
     setView('list')
   }, [createForm?.successId, refresh])
-  const poolsConfig = usePoolsConfig()
+  const { diamondAddress } = useProtocolAddresses()
   const { buildTxUrl } = useExplorerUrl()
 
   const [view, setView] = useState<'list' | 'create'>('list')
@@ -92,8 +92,6 @@ function AuctionManagementPage() {
       if (!publicClient || !writeContractAsync) throw new Error('Wallet client unavailable')
       if (!isConnected || !address) throw new Error('Connect wallet to cancel')
 
-      const poolA = poolsConfig.pools.find((pool: PoolConfig) => Number(pool.pid) === Number(cancelTarget.poolIdA))
-      const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA?.lendingPoolAddress || '').trim()
       if (!diamondAddress) throw new Error('Diamond address missing')
 
       const isCommunity = cancelTarget.type === 'community'
@@ -152,8 +150,6 @@ function AuctionManagementPage() {
       if (!publicClient || !writeContractAsync) throw new Error('Wallet client unavailable')
       if (!isConnected || !address) throw new Error('Connect wallet to exit')
 
-      const poolA = poolsConfig.pools.find((pool: PoolConfig) => Number(pool.pid) === Number(exitTarget.poolIdA))
-      const diamondAddress = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA?.lendingPoolAddress || '').trim()
       if (!diamondAddress) throw new Error('Diamond address missing')
 
       const txHash = await writeContractAsync({

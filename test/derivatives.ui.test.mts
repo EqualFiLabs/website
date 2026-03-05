@@ -7,8 +7,10 @@ import {
   asString,
   formatUnixTimestamp,
   parseBps,
+  parseExpirySeconds,
   parseOptionalUint,
   parseRequiredUint,
+  parseTokenAmount,
 } from "../src/lib/derivatives/ui.ts";
 
 test("parseRequiredUint parses uint strings and rejects invalid inputs", () => {
@@ -32,6 +34,32 @@ test("parseBps enforces integer bounds", () => {
 
   assert.throws(() => parseBps("10001", "Create fee"), /between 0 and 10000/);
   assert.throws(() => parseBps("1.2", "Create fee"), /must be an integer/);
+});
+
+test("parseTokenAmount supports decimal and integer token amounts", () => {
+  assert.equal(parseTokenAmount("0.005", 18, "Total size"), 5_000_000_000_000_000n);
+  assert.equal(parseTokenAmount(".005", 18, "Total size"), 5_000_000_000_000_000n);
+  assert.equal(parseTokenAmount("1.", 6, "Total size"), 1_000_000n);
+  assert.equal(parseTokenAmount("0,5", 18, "Total size"), 500_000_000_000_000_000n);
+  assert.equal(parseTokenAmount("1", 6, "Total size"), 1_000_000n);
+  assert.equal(parseTokenAmount("0", 18, "Total size"), 0n);
+
+  assert.throws(() => parseTokenAmount("", 18, "Total size"), /required/);
+  assert.throws(() => parseTokenAmount("-1", 18, "Total size"), /non-negative number/);
+  assert.throws(() => parseTokenAmount("abc", 18, "Total size"), /non-negative number/);
+  assert.throws(() => parseTokenAmount("1,234.5", 18, "Total size"), /non-negative number/);
+  assert.throws(() => parseTokenAmount("0.0000001", 6, "Total size"), /too many decimal places/);
+});
+
+test("parseExpirySeconds supports unix and datetime-local inputs", () => {
+  assert.equal(parseExpirySeconds("1772658804", "Expiry"), 1_772_658_804n);
+
+  const localInput = "2026-03-04T14:30";
+  const expected = BigInt(Math.floor(new Date(localInput).getTime() / 1000));
+  assert.equal(parseExpirySeconds(localInput, "Expiry"), expected);
+
+  assert.throws(() => parseExpirySeconds("", "Expiry"), /Expiry is required/);
+  assert.throws(() => parseExpirySeconds("not-a-date", "Expiry"), /valid date\/time/);
 });
 
 test("formatUnixTimestamp and asString normalize display values", () => {

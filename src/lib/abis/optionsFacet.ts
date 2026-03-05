@@ -14,6 +14,7 @@ export const optionsFacetAbi = [
           { name: "strikePrice", type: "uint256" },
           { name: "expiry", type: "uint64" },
           { name: "totalSize", type: "uint256" },
+          { name: "contractSize", type: "uint256" },
           { name: "isCall", type: "bool" },
           { name: "isAmerican", type: "bool" },
           { name: "useCustomFees", type: "bool" },

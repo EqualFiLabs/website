@@ -88,6 +88,13 @@ DATABASE_URL=postgresql://username:password@localhost:5432/equalfi
 # WalletConnect Project ID (get from https://cloud.walletconnect.com)
 NEXT_PUBLIC_WC_PROJECT_ID=your_project_id_here
 
+# UI Pools Config Overrides (optional)
+# These should be JSON objects matching src/lib/pools.json shape.
+# Foundry chainId 31337 uses NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY.
+# Other chains use NEXT_PUBLIC_POOLS_CONFIG_TESTNET.
+NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY={"diamondAddress":"0x...","positionNFTAddress":"0x...","faucetAddress":"0x...","pools":[...],"indexTokens":[...],"ilmIsolatedMarkets":[]}
+NEXT_PUBLIC_POOLS_CONFIG_TESTNET={"diamondAddress":"0x...","positionNFTAddress":"0x...","faucetAddress":"0x...","pools":[...],"indexTokens":[...],"ilmIsolatedMarkets":[]}
+
 # Indexer Configuration (optional - for running the indexer)
 # Select networks: arbitrum-sepolia,base-sepolia,ethereum-sepolia,anvil
 INDEXER_NETWORKS=anvil
@@ -121,6 +128,11 @@ The application uses `src/lib/pools.json` for multi-chain contract addresses. Th
 
 - **Foundry (31337)**: Local development addresses
 - **Testnets (421614, 84532, 11155111)**: Shared addresses for Arbitrum Sepolia, Base Sepolia, and Ethereum Sepolia
+
+You can optionally override these in `.env.local` with:
+
+- `NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY` (applies only to chain `31337`)
+- `NEXT_PUBLIC_POOLS_CONFIG_TESTNET` (applies to non-`31337` chains)
 
 After deploying to new networks, update the appropriate section in `pools.json`:
 

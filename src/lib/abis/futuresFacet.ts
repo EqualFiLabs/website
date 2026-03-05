@@ -14,6 +14,7 @@ export const futuresFacetAbi = [
           { name: "forwardPrice", type: "uint256" },
           { name: "expiry", type: "uint64" },
           { name: "totalSize", type: "uint256" },
+          { name: "contractSize", type: "uint256" },
           { name: "isEuropean", type: "bool" },
           { name: "useCustomFees", type: "bool" },
           { name: "createFeeBps", type: "uint16" },

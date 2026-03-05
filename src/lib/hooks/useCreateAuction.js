@@ -5,6 +5,7 @@ import useBufferedWriteContract from '@/lib/hooks/useBufferedWriteContract'
 import { useToasts } from '@/components/common/ToastProvider'
 import useActivePublicClient from './useActivePublicClient'
 import usePoolsConfig from './usePoolsConfig'
+import useProtocolAddresses from './useProtocolAddresses'
 import useExplorerUrl from './useExplorerUrl'
 import { tokensFromConfig } from '../tokens'
 import { DEFAULT_TOKEN_IN, DEFAULT_TOKEN_OUT, findTokenBySymbol } from '../tokenDefaults'
@@ -17,6 +18,7 @@ function useCreateAuction() {
   const publicClient = useActivePublicClient()
   const { writeContractAsync } = useBufferedWriteContract()
   const poolsConfig = usePoolsConfig()
+  const { diamondAddress } = useProtocolAddresses()
   const { buildTxUrl } = useExplorerUrl()
   const tokens = useMemo(() => tokensFromConfig(poolsConfig), [poolsConfig])
   const defaultTokenA = useMemo(() => findTokenBySymbol(tokens, DEFAULT_TOKEN_IN), [tokens])
@@ -117,8 +119,6 @@ function useCreateAuction() {
       const reserveB = parseUnits(state.reserveB, poolB.decimals ?? 18)
       if (reserveA <= BigInt(0) || reserveB <= BigInt(0)) throw new Error('Reserve values must be above zero')
 
-      const diamondAddress =
-        (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolA.lendingPoolAddress || '').trim()
       if (!diamondAddress) throw new Error('Diamond address missing from config')
       if (poolB.lendingPoolAddress && poolB.lendingPoolAddress.toLowerCase() !== diamondAddress.toLowerCase()) {
         throw new Error('Pools must share the same diamond address')

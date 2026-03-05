@@ -25,16 +25,19 @@ import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import useBufferedWriteContract from "@/lib/hooks/useBufferedWriteContract";
 import useExplorerUrl from "@/lib/hooks/useExplorerUrl";
 import usePoolsConfig from "@/lib/hooks/usePoolsConfig";
+import useProtocolAddresses from "@/lib/hooks/useProtocolAddresses";
 import usePositionNFTs from "@/lib/hooks/usePositionNFTs";
 import {
   asString,
   buildPoolIdOptions,
   buildPositionIdOptions,
   formatUnixTimestamp,
-  parseBps,
   parseOptionalUint,
   parseRequiredUint,
+  parseExpirySeconds,
+  parseTokenAmount,
 } from "@/lib/derivatives/ui";
+import { resolveFoundryAddressEnv } from "@/lib/foundryOverrides";
 
 type Scope = "active" | "all";
 
@@ -85,6 +88,7 @@ const EMPTY_OPTION_FORM = {
   strikePrice: "",
   expiry: "",
   totalSize: "",
+  contractSize: "1",
   isCall: true,
   isAmerican: false,
   useCustomFees: false,
@@ -100,6 +104,7 @@ const EMPTY_FUTURES_FORM = {
   forwardPrice: "",
   expiry: "",
   totalSize: "",
+  contractSize: "1",
   isEuropean: true,
   useCustomFees: false,
   createFeeBps: "",
@@ -157,23 +162,28 @@ export default function DerivativesPage() {
   const publicClient = useActivePublicClient();
   const chainId = useActiveChainId();
   const poolsConfig = usePoolsConfig();
+  const { diamondAddress } = useProtocolAddresses();
   const { nfts } = usePositionNFTs();
   const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
   const { buildTxUrl } = useExplorerUrl();
 
-  const diamondAddress = useMemo(() => {
-    const value = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || "").trim();
-    return value ? (value as `0x${string}`) : undefined;
-  }, []);
   const optionTokenAddress = useMemo(() => {
-    const value = (process.env.NEXT_PUBLIC_OPTION_TOKEN || "").trim();
+    const value = resolveFoundryAddressEnv(
+      chainId,
+      "NEXT_PUBLIC_OPTION_TOKEN",
+      "NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY",
+    );
     return value ? (value as `0x${string}`) : undefined;
-  }, []);
+  }, [chainId]);
   const futuresTokenAddress = useMemo(() => {
-    const value = (process.env.NEXT_PUBLIC_FUTURES_TOKEN || "").trim();
+    const value = resolveFoundryAddressEnv(
+      chainId,
+      "NEXT_PUBLIC_FUTURES_TOKEN",
+      "NEXT_PUBLIC_FUTURES_TOKEN_FOUNDRY",
+    );
     return value ? (value as `0x${string}`) : undefined;
-  }, []);
+  }, [chainId]);
 
   const [scope, setScope] = useState<Scope>("active");
   const [makerPositionIdFilter, setMakerPositionIdFilter] = useState("");
@@ -203,6 +213,18 @@ export default function DerivativesPage() {
 
   const positionIdOptions = useMemo(() => buildPositionIdOptions(nfts), [nfts]);
   const poolIdOptions = useMemo(() => buildPoolIdOptions(poolsConfig?.pools), [poolsConfig?.pools]);
+  const getPoolDecimals = useCallback(
+    (poolIdInput: string) => {
+      const poolId = Number(poolIdInput);
+      const pool = (poolsConfig?.pools || []).find((entry) => Number(entry?.pid) === poolId);
+      const decimals = Number(pool?.decimals);
+      if (Number.isInteger(decimals) && decimals >= 0) {
+        return decimals;
+      }
+      return 18;
+    },
+    [poolsConfig?.pools],
+  );
 
   useEffect(() => {
     if (!address) {
@@ -284,7 +306,7 @@ export default function DerivativesPage() {
 
   const ensureReady = useCallback(() => {
     if (!diamondAddress) {
-      throw new Error("NEXT_PUBLIC_DIAMOND_ADDRESS is missing");
+      throw new Error("diamondAddress is missing from pools config");
     }
     if (!publicClient || !writeContractAsync) {
       throw new Error("Wallet client unavailable");
@@ -413,23 +435,24 @@ export default function DerivativesPage() {
     try {
       const { diamondAddress: resolvedDiamond } = ensureReady();
 
-      const createFeeBps = optionForm.useCustomFees ? parseBps(optionForm.createFeeBps, "Create fee bps") : 0;
-      const exerciseFeeBps = optionForm.useCustomFees ? parseBps(optionForm.exerciseFeeBps, "Exercise fee bps") : 0;
-      const reclaimFeeBps = optionForm.useCustomFees ? parseBps(optionForm.reclaimFeeBps, "Reclaim fee bps") : 0;
-
       const config = createOptionSeriesWriteRequest(resolvedDiamond, {
         positionId: parseRequiredUint(optionForm.positionId, "Position id"),
         underlyingPoolId: parseRequiredUint(optionForm.underlyingPoolId, "Underlying pool id"),
         strikePoolId: parseRequiredUint(optionForm.strikePoolId, "Strike pool id"),
         strikePrice: parseRequiredUint(optionForm.strikePrice, "Strike price"),
-        expiry: parseRequiredUint(optionForm.expiry, "Expiry (unix seconds)"),
-        totalSize: parseRequiredUint(optionForm.totalSize, "Total size"),
+        expiry: parseExpirySeconds(optionForm.expiry, "Expiry"),
+        totalSize: parseTokenAmount(
+          optionForm.totalSize,
+          getPoolDecimals(optionForm.underlyingPoolId),
+          "Total size",
+        ),
+        contractSize: parseRequiredUint(optionForm.contractSize, "Contract size"),
         isCall: optionForm.isCall,
         isAmerican: optionForm.isAmerican,
-        useCustomFees: optionForm.useCustomFees,
-        createFeeBps,
-        exerciseFeeBps,
-        reclaimFeeBps,
+        useCustomFees: false,
+        createFeeBps: 0,
+        exerciseFeeBps: 0,
+        reclaimFeeBps: 0,
       });
 
       await submitWrite(config, "Create option submitted", "Option series created", () => {
@@ -452,22 +475,23 @@ export default function DerivativesPage() {
     try {
       const { diamondAddress: resolvedDiamond } = ensureReady();
 
-      const createFeeBps = futuresForm.useCustomFees ? parseBps(futuresForm.createFeeBps, "Create fee bps") : 0;
-      const exerciseFeeBps = futuresForm.useCustomFees ? parseBps(futuresForm.exerciseFeeBps, "Settle fee bps") : 0;
-      const reclaimFeeBps = futuresForm.useCustomFees ? parseBps(futuresForm.reclaimFeeBps, "Reclaim fee bps") : 0;
-
       const config = createFuturesSeriesWriteRequest(resolvedDiamond, {
         positionId: parseRequiredUint(futuresForm.positionId, "Position id"),
         underlyingPoolId: parseRequiredUint(futuresForm.underlyingPoolId, "Underlying pool id"),
         quotePoolId: parseRequiredUint(futuresForm.quotePoolId, "Quote pool id"),
         forwardPrice: parseRequiredUint(futuresForm.forwardPrice, "Forward price"),
-        expiry: parseRequiredUint(futuresForm.expiry, "Expiry (unix seconds)"),
-        totalSize: parseRequiredUint(futuresForm.totalSize, "Total size"),
+        expiry: parseExpirySeconds(futuresForm.expiry, "Expiry"),
+        totalSize: parseTokenAmount(
+          futuresForm.totalSize,
+          getPoolDecimals(futuresForm.underlyingPoolId),
+          "Total size",
+        ),
+        contractSize: parseRequiredUint(futuresForm.contractSize, "Contract size"),
         isEuropean: futuresForm.isEuropean,
-        useCustomFees: futuresForm.useCustomFees,
-        createFeeBps,
-        exerciseFeeBps,
-        reclaimFeeBps,
+        useCustomFees: false,
+        createFeeBps: 0,
+        exerciseFeeBps: 0,
+        reclaimFeeBps: 0,
       });
 
       await submitWrite(config, "Create futures submitted", "Futures series created", () => {
@@ -701,384 +725,421 @@ export default function DerivativesPage() {
 
   const readyStatus = diamondAddress
     ? "Wallet write flows ready"
-    : "Set NEXT_PUBLIC_DIAMOND_ADDRESS to enable transactions";
+    : "Set diamondAddress in NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY/TESTNET";
 
   return (
     <AppShell title="Derivatives">
-      <Card>
-        <SectionHeader title="DERIVATIVES V1" subtitle="Options + futures lifecycle" />
-        <div className="mt-4 grid gap-3 text-xs font-mono text-gray-300 md:grid-cols-2">
-          <p>Operator flows: {derivativesV1Capabilities.operatorFlows ? "enabled" : "excluded"}</p>
-          <p>Custom fee selection: {derivativesV1Capabilities.customFees ? "available" : "disabled"}</p>
-          <p className="md:col-span-2">Series discovery and fee bps are indexed. On-chain reads are still available for selected series verification.</p>
+      <div className="mx-auto w-full max-w-[1600px] space-y-8 pointer-events-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-neutral1">Derivatives V1</h1>
+            <p className="text-neutral2">Options & futures lifecycle management and settlement.</p>
+          </div>
         </div>
-        <StatusLine text={readyStatus} />
-      </Card>
 
-      <section className="grid gap-6 md:grid-cols-3">
         <Card>
-          <SectionHeader title="SERIES INDEX" subtitle="Indexed options and futures" />
-          <div className="mt-4 grid gap-3">
-            <Field label="Scope">
-              <Select value={scope} onChange={(event) => setScope(event.target.value as Scope)}>
-                <option value="active">Active only</option>
-                <option value="all">All</option>
-              </Select>
-            </Field>
-            <Field label="Maker Position Id (optional)">
-              <Input
-                value={makerPositionIdFilter}
-                onChange={(event) => setMakerPositionIdFilter(event.target.value)}
-                placeholder="e.g. 1"
-              />
-            </Field>
-            <ActionButton onClick={() => void loadSeries()} disabled={loadingSeries}>
-              {loadingSeries ? "Refreshing..." : "Refresh Index"}
-            </ActionButton>
-            <StatusLine text={seriesError} />
+          <SectionHeader title="CAPABILITIES" subtitle="Operator flows and configuration" />
+          <div className="mt-4 grid gap-3 text-sm text-neutral2 md:grid-cols-2">
+            <p>Operator flows: {derivativesV1Capabilities.operatorFlows ? "enabled" : "excluded"}</p>
+            <p>Custom fee selection: {derivativesV1Capabilities.customFees ? "available" : "disabled"}</p>
+            <p className="md:col-span-2 text-xs">Series discovery and fee bps are indexed. On-chain reads are still available for selected series verification.</p>
           </div>
+          <StatusLine text={readyStatus} />
         </Card>
 
-        <Card>
-          <SectionHeader title="OPTIONS SNAPSHOT" subtitle={`${options.length} rows`} />
-          <div className="mt-4 max-h-72 overflow-auto space-y-2 text-xs font-mono">
-            {options.length === 0 ? <p className="text-gray-500">No option series found.</p> : null}
-            {options.map((row) => (
-              <div key={`${asString(row.chain_id)}-${asString(row.series_id)}`} className="border border-white/15 rounded p-2">
-                <p>series #{asString(row.series_id)} / pos #{asString(row.maker_position_id) || "-"}</p>
-                <p>
-                  rem={asString(row.remaining_size) || "-"} | collat={asString(row.collateral_locked) || "-"}
-                </p>
-                <p>
-                  fees c/e/r={asString(row.create_fee_bps) || "-"}/{asString(row.exercise_fee_bps) || "-"}/
-                  {asString(row.reclaim_fee_bps) || "-"}
-                </p>
-                <p>
-                  {row.is_call ? "CALL" : "PUT"} | {row.is_american ? "AMERICAN" : "EUROPEAN"} |{" "}
-                  {row.reclaimed ? "RECLAIMED" : "OPEN"}
-                </p>
-                <p>expiry {formatUnixTimestamp(row.expiry)}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <SectionHeader title="FUTURES SNAPSHOT" subtitle={`${futures.length} rows`} />
-          <div className="mt-4 max-h-72 overflow-auto space-y-2 text-xs font-mono">
-            {futures.length === 0 ? <p className="text-gray-500">No futures series found.</p> : null}
-            {futures.map((row) => (
-              <div key={`${asString(row.chain_id)}-${asString(row.series_id)}`} className="border border-white/15 rounded p-2">
-                <p>series #{asString(row.series_id)} / pos #{asString(row.maker_position_id) || "-"}</p>
-                <p>
-                  rem={asString(row.remaining_size) || "-"} | locked={asString(row.underlying_locked) || "-"}
-                </p>
-                <p>
-                  fees c/s/r={asString(row.create_fee_bps) || "-"}/{asString(row.exercise_fee_bps) || "-"}/
-                  {asString(row.reclaim_fee_bps) || "-"}
-                </p>
-                <p>
-                  {row.is_european ? "EUROPEAN" : "AMERICAN-STYLE"} | {row.reclaimed ? "RECLAIMED" : "OPEN"}
-                </p>
-                <p>expiry {formatUnixTimestamp(row.expiry)}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </section>
-
-      <section className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <SectionHeader title="CREATE OPTION" subtitle="Mint option claims to maker" />
-          <div className="mt-4 grid gap-3">
-            <Field label="Position Id">
-              <Select value={optionForm.positionId} onChange={(event) => setOptionForm((prev) => ({ ...prev, positionId: event.target.value }))}>
-                <option value="">{positionIdOptions.length ? "Select Position NFT..." : "No Position NFTs found"}</option>
-                {positionIdOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Underlying Pool Id">
-              <Select value={optionForm.underlyingPoolId} onChange={(event) => setOptionForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}>
-                <option value="">{poolIdOptions.length ? "Select Underlying Pool..." : "No pools configured"}</option>
-                {poolIdOptions.map((option) => (
-                  <option key={`opt-underlying-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Strike Pool Id">
-              <Select value={optionForm.strikePoolId} onChange={(event) => setOptionForm((prev) => ({ ...prev, strikePoolId: event.target.value }))}>
-                <option value="">{poolIdOptions.length ? "Select Strike Pool..." : "No pools configured"}</option>
-                {poolIdOptions.map((option) => (
-                  <option key={`opt-strike-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Strike Price">
-              <Input value={optionForm.strikePrice} onChange={(event) => setOptionForm((prev) => ({ ...prev, strikePrice: event.target.value }))} />
-            </Field>
-            <Field label="Expiry (unix seconds)">
-              <Input value={optionForm.expiry} onChange={(event) => setOptionForm((prev) => ({ ...prev, expiry: event.target.value }))} />
-            </Field>
-            <Field label="Total Size">
-              <Input value={optionForm.totalSize} onChange={(event) => setOptionForm((prev) => ({ ...prev, totalSize: event.target.value }))} />
-            </Field>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Side">
-                <Select
-                  value={optionForm.isCall ? "call" : "put"}
-                  onChange={(event) => setOptionForm((prev) => ({ ...prev, isCall: event.target.value === "call" }))}
-                >
-                  <option value="call">Call</option>
-                  <option value="put">Put</option>
+        <section className="grid gap-6 md:grid-cols-3">
+          <Card>
+            <SectionHeader title="SERIES INDEX" subtitle="Indexed options and futures" />
+            <div className="mt-4 grid gap-3">
+              <Field label="Scope">
+                <Select value={scope} onChange={(event) => setScope(event.target.value as Scope)}>
+                  <option value="active">Active only</option>
+                  <option value="all">All</option>
                 </Select>
               </Field>
-              <Field label="Exercise Window">
+              <Field label="Maker Position Id (optional)">
+                <Input
+                  value={makerPositionIdFilter}
+                  onChange={(event) => setMakerPositionIdFilter(event.target.value)}
+                  placeholder="e.g. 1"
+                />
+              </Field>
+              <ActionButton onClick={() => void loadSeries()} disabled={loadingSeries}>
+                {loadingSeries ? "Refreshing..." : "Refresh Index"}
+              </ActionButton>
+              <StatusLine text={seriesError} />
+            </div>
+          </Card>
+
+          <Card>
+            <SectionHeader title="OPTIONS SNAPSHOT" subtitle={`${options.length} rows`} />
+            <div className="mt-4 max-h-72 overflow-auto space-y-3 text-sm font-mono text-neutral2">
+              {options.length === 0 ? <p className="text-neutral3">No option series found.</p> : null}
+              {options.map((row) => (
+                <div key={`${asString(row.chain_id)}-${asString(row.series_id)}`} className="border border-surface3 rounded-xl p-3 bg-surface2/50">
+                  <p>series #{asString(row.series_id)} / pos #{asString(row.maker_position_id) || "-"}</p>
+                  <p>
+                    rem={asString(row.remaining_size) || "-"} | collat={asString(row.collateral_locked) || "-"}
+                  </p>
+                  <p>
+                    fees c/e/r={asString(row.create_fee_bps) || "-"}/{asString(row.exercise_fee_bps) || "-"}/
+                    {asString(row.reclaim_fee_bps) || "-"}
+                  </p>
+                  <p>
+                    {row.is_call ? "CALL" : "PUT"} | {row.is_american ? "AMERICAN" : "EUROPEAN"} |{" "}
+                    {row.reclaimed ? "RECLAIMED" : "OPEN"}
+                  </p>
+                  <p>expiry {formatUnixTimestamp(row.expiry)}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <SectionHeader title="FUTURES SNAPSHOT" subtitle={`${futures.length} rows`} />
+            <div className="mt-4 max-h-72 overflow-auto space-y-3 text-sm font-mono text-neutral2">
+              {futures.length === 0 ? <p className="text-neutral3">No futures series found.</p> : null}
+              {futures.map((row) => (
+                <div key={`${asString(row.chain_id)}-${asString(row.series_id)}`} className="border border-surface3 rounded-xl p-3 bg-surface2/50">
+                  <p>series #{asString(row.series_id)} / pos #{asString(row.maker_position_id) || "-"}</p>
+                  <p>
+                    rem={asString(row.remaining_size) || "-"} | locked={asString(row.underlying_locked) || "-"}
+                  </p>
+                  <p>
+                    fees c/s/r={asString(row.create_fee_bps) || "-"}/{asString(row.exercise_fee_bps) || "-"}/
+                    {asString(row.reclaim_fee_bps) || "-"}
+                  </p>
+                  <p>
+                    {row.is_european ? "EUROPEAN" : "AMERICAN-STYLE"} | {row.reclaimed ? "RECLAIMED" : "OPEN"}
+                  </p>
+                  <p>expiry {formatUnixTimestamp(row.expiry)}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </section>
+
+        <section className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <SectionHeader title="CREATE OPTION" subtitle="Mint option claims to maker" />
+            <div className="mt-4 grid gap-3">
+              <Field label="Position Id">
+                <Select value={optionForm.positionId} onChange={(event) => setOptionForm((prev) => ({ ...prev, positionId: event.target.value }))}>
+                  <option value="">{positionIdOptions.length ? "Select Position NFT..." : "No Position NFTs found"}</option>
+                  {positionIdOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Underlying Pool Id">
+                <Select value={optionForm.underlyingPoolId} onChange={(event) => setOptionForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}>
+                  <option value="">{poolIdOptions.length ? "Select Underlying Pool..." : "No pools configured"}</option>
+                  {poolIdOptions.map((option) => (
+                    <option key={`opt-underlying-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Strike Pool Id">
+                <Select value={optionForm.strikePoolId} onChange={(event) => setOptionForm((prev) => ({ ...prev, strikePoolId: event.target.value }))}>
+                  <option value="">{poolIdOptions.length ? "Select Strike Pool..." : "No pools configured"}</option>
+                  {poolIdOptions.map((option) => (
+                    <option key={`opt-strike-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Strike Price">
+                <Input value={optionForm.strikePrice} onChange={(event) => setOptionForm((prev) => ({ ...prev, strikePrice: event.target.value }))} />
+              </Field>
+              <Field label="Expiry (date & time)">
+                <Input
+                  type="datetime-local"
+                  step={60}
+                  value={optionForm.expiry}
+                  onChange={(event) => setOptionForm((prev) => ({ ...prev, expiry: event.target.value }))}
+                />
+              </Field>
+              <Field label="Total Size (underlying units, decimals allowed)">
+                <Input value={optionForm.totalSize} onChange={(event) => setOptionForm((prev) => ({ ...prev, totalSize: event.target.value }))} />
+              </Field>
+              <Field label="Contract Size (raw uint256)">
+                <Input value={optionForm.contractSize} onChange={(event) => setOptionForm((prev) => ({ ...prev, contractSize: event.target.value }))} />
+              </Field>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Side">
+                  <Select
+                    value={optionForm.isCall ? "call" : "put"}
+                    onChange={(event) => setOptionForm((prev) => ({ ...prev, isCall: event.target.value === "call" }))}
+                  >
+                    <option value="call">Call</option>
+                    <option value="put">Put</option>
+                  </Select>
+                </Field>
+                <Field label="Exercise Window">
+                  <Select
+                    value={optionForm.isAmerican ? "american" : "european"}
+                    onChange={(event) => setOptionForm((prev) => ({ ...prev, isAmerican: event.target.value === "american" }))}
+                  >
+                    <option value="european">European</option>
+                    <option value="american">American</option>
+                  </Select>
+                </Field>
+              </div>
+              {derivativesV1Capabilities.customFees ? (
+                <>
+                  <label className="text-xs font-mono text-neutral2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={optionForm.useCustomFees}
+                      onChange={(event) => setOptionForm((prev) => ({ ...prev, useCustomFees: event.target.checked }))}
+                    />
+                    Use custom fee bps
+                  </label>
+                  {optionForm.useCustomFees ? (
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <Field label="Create bps">
+                        <Input value={optionForm.createFeeBps} onChange={(event) => setOptionForm((prev) => ({ ...prev, createFeeBps: event.target.value }))} />
+                      </Field>
+                      <Field label="Exercise bps">
+                        <Input value={optionForm.exerciseFeeBps} onChange={(event) => setOptionForm((prev) => ({ ...prev, exerciseFeeBps: event.target.value }))} />
+                      </Field>
+                      <Field label="Reclaim bps">
+                        <Input value={optionForm.reclaimFeeBps} onChange={(event) => setOptionForm((prev) => ({ ...prev, reclaimFeeBps: event.target.value }))} />
+                      </Field>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-xs font-mono text-neutral2">Fees use protocol defaults.</p>
+              )}
+              <ActionButton onClick={() => void handleCreateOption()} disabled={submittingOptionCreate}>
+                {submittingOptionCreate ? "Submitting..." : "Create Option Series"}
+              </ActionButton>
+            </div>
+          </Card>
+
+          <Card>
+            <SectionHeader title="CREATE FUTURES" subtitle="Mint futures claims to maker" />
+            <div className="mt-4 grid gap-3">
+              <Field label="Position Id">
+                <Select value={futuresForm.positionId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, positionId: event.target.value }))}>
+                  <option value="">{positionIdOptions.length ? "Select Position NFT..." : "No Position NFTs found"}</option>
+                  {positionIdOptions.map((option) => (
+                    <option key={`fut-pos-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Underlying Pool Id">
+                <Select value={futuresForm.underlyingPoolId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}>
+                  <option value="">{poolIdOptions.length ? "Select Underlying Pool..." : "No pools configured"}</option>
+                  {poolIdOptions.map((option) => (
+                    <option key={`fut-underlying-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Quote Pool Id">
+                <Select value={futuresForm.quotePoolId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, quotePoolId: event.target.value }))}>
+                  <option value="">{poolIdOptions.length ? "Select Quote Pool..." : "No pools configured"}</option>
+                  {poolIdOptions.map((option) => (
+                    <option key={`fut-quote-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Forward Price">
+                <Input value={futuresForm.forwardPrice} onChange={(event) => setFuturesForm((prev) => ({ ...prev, forwardPrice: event.target.value }))} />
+              </Field>
+              <Field label="Expiry (date & time)">
+                <Input
+                  type="datetime-local"
+                  step={60}
+                  value={futuresForm.expiry}
+                  onChange={(event) => setFuturesForm((prev) => ({ ...prev, expiry: event.target.value }))}
+                />
+              </Field>
+              <Field label="Total Size (underlying units, decimals allowed)">
+                <Input value={futuresForm.totalSize} onChange={(event) => setFuturesForm((prev) => ({ ...prev, totalSize: event.target.value }))} />
+              </Field>
+              <Field label="Contract Size (raw uint256)">
+                <Input value={futuresForm.contractSize} onChange={(event) => setFuturesForm((prev) => ({ ...prev, contractSize: event.target.value }))} />
+              </Field>
+              <Field label="Settlement Style">
                 <Select
-                  value={optionForm.isAmerican ? "american" : "european"}
-                  onChange={(event) => setOptionForm((prev) => ({ ...prev, isAmerican: event.target.value === "american" }))}
+                  value={futuresForm.isEuropean ? "european" : "american"}
+                  onChange={(event) => setFuturesForm((prev) => ({ ...prev, isEuropean: event.target.value === "european" }))}
                 >
                   <option value="european">European</option>
-                  <option value="american">American</option>
+                  <option value="american">American-style window</option>
                 </Select>
               </Field>
+              {derivativesV1Capabilities.customFees ? (
+                <>
+                  <label className="text-xs font-mono text-neutral2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={futuresForm.useCustomFees}
+                      onChange={(event) => setFuturesForm((prev) => ({ ...prev, useCustomFees: event.target.checked }))}
+                    />
+                    Use custom fee bps
+                  </label>
+                  {futuresForm.useCustomFees ? (
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <Field label="Create bps">
+                        <Input value={futuresForm.createFeeBps} onChange={(event) => setFuturesForm((prev) => ({ ...prev, createFeeBps: event.target.value }))} />
+                      </Field>
+                      <Field label="Settle bps">
+                        <Input value={futuresForm.exerciseFeeBps} onChange={(event) => setFuturesForm((prev) => ({ ...prev, exerciseFeeBps: event.target.value }))} />
+                      </Field>
+                      <Field label="Reclaim bps">
+                        <Input value={futuresForm.reclaimFeeBps} onChange={(event) => setFuturesForm((prev) => ({ ...prev, reclaimFeeBps: event.target.value }))} />
+                      </Field>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-xs font-mono text-neutral2">Fees use protocol defaults.</p>
+              )}
+              <ActionButton onClick={() => void handleCreateFutures()} disabled={submittingFuturesCreate}>
+                {submittingFuturesCreate ? "Submitting..." : "Create Futures Series"}
+              </ActionButton>
             </div>
-            <label className="text-xs font-mono text-gray-400 flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={optionForm.useCustomFees}
-                onChange={(event) => setOptionForm((prev) => ({ ...prev, useCustomFees: event.target.checked }))}
-              />
-              Use custom fee bps
-            </label>
-            {optionForm.useCustomFees ? (
-              <div className="grid gap-3 md:grid-cols-3">
-                <Field label="Create bps">
-                  <Input value={optionForm.createFeeBps} onChange={(event) => setOptionForm((prev) => ({ ...prev, createFeeBps: event.target.value }))} />
+          </Card>
+        </section>
+
+        <section className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <SectionHeader title="OPTIONS ACTIONS" subtitle="Exercise, reclaim, burn claims" />
+            <div className="mt-4 grid gap-3">
+              <Field label="Series Id">
+                <Input value={optionAction.seriesId} onChange={(event) => setOptionAction((prev) => ({ ...prev, seriesId: event.target.value }))} />
+              </Field>
+              <Field label="Token Balance (selected series)">
+                <Input value={optionTokenBalance} disabled />
+              </Field>
+              <Field label="Amount">
+                <Input value={optionAction.amount} onChange={(event) => setOptionAction((prev) => ({ ...prev, amount: event.target.value }))} />
+              </Field>
+              <Field label="Recipient">
+                <Input value={optionAction.recipient} onChange={(event) => setOptionAction((prev) => ({ ...prev, recipient: event.target.value }))} />
+              </Field>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Max Payment">
+                  <Input value={optionAction.maxPayment} onChange={(event) => setOptionAction((prev) => ({ ...prev, maxPayment: event.target.value }))} />
                 </Field>
-                <Field label="Exercise bps">
-                  <Input value={optionForm.exerciseFeeBps} onChange={(event) => setOptionForm((prev) => ({ ...prev, exerciseFeeBps: event.target.value }))} />
-                </Field>
-                <Field label="Reclaim bps">
-                  <Input value={optionForm.reclaimFeeBps} onChange={(event) => setOptionForm((prev) => ({ ...prev, reclaimFeeBps: event.target.value }))} />
+                <Field label="Min Received">
+                  <Input value={optionAction.minReceived} onChange={(event) => setOptionAction((prev) => ({ ...prev, minReceived: event.target.value }))} />
                 </Field>
               </div>
-            ) : null}
-            <ActionButton onClick={() => void handleCreateOption()} disabled={submittingOptionCreate}>
-              {submittingOptionCreate ? "Submitting..." : "Create Option Series"}
-            </ActionButton>
-          </div>
-        </Card>
-
-        <Card>
-          <SectionHeader title="CREATE FUTURES" subtitle="Mint futures claims to maker" />
-          <div className="mt-4 grid gap-3">
-            <Field label="Position Id">
-              <Select value={futuresForm.positionId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, positionId: event.target.value }))}>
-                <option value="">{positionIdOptions.length ? "Select Position NFT..." : "No Position NFTs found"}</option>
-                {positionIdOptions.map((option) => (
-                  <option key={`fut-pos-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Underlying Pool Id">
-              <Select value={futuresForm.underlyingPoolId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, underlyingPoolId: event.target.value }))}>
-                <option value="">{poolIdOptions.length ? "Select Underlying Pool..." : "No pools configured"}</option>
-                {poolIdOptions.map((option) => (
-                  <option key={`fut-underlying-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Quote Pool Id">
-              <Select value={futuresForm.quotePoolId} onChange={(event) => setFuturesForm((prev) => ({ ...prev, quotePoolId: event.target.value }))}>
-                <option value="">{poolIdOptions.length ? "Select Quote Pool..." : "No pools configured"}</option>
-                {poolIdOptions.map((option) => (
-                  <option key={`fut-quote-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Forward Price">
-              <Input value={futuresForm.forwardPrice} onChange={(event) => setFuturesForm((prev) => ({ ...prev, forwardPrice: event.target.value }))} />
-            </Field>
-            <Field label="Expiry (unix seconds)">
-              <Input value={futuresForm.expiry} onChange={(event) => setFuturesForm((prev) => ({ ...prev, expiry: event.target.value }))} />
-            </Field>
-            <Field label="Total Size">
-              <Input value={futuresForm.totalSize} onChange={(event) => setFuturesForm((prev) => ({ ...prev, totalSize: event.target.value }))} />
-            </Field>
-            <Field label="Settlement Style">
-              <Select
-                value={futuresForm.isEuropean ? "european" : "american"}
-                onChange={(event) => setFuturesForm((prev) => ({ ...prev, isEuropean: event.target.value === "european" }))}
-              >
-                <option value="european">European</option>
-                <option value="american">American-style window</option>
-              </Select>
-            </Field>
-            <label className="text-xs font-mono text-gray-400 flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={futuresForm.useCustomFees}
-                onChange={(event) => setFuturesForm((prev) => ({ ...prev, useCustomFees: event.target.checked }))}
-              />
-              Use custom fee bps
-            </label>
-            {futuresForm.useCustomFees ? (
-              <div className="grid gap-3 md:grid-cols-3">
-                <Field label="Create bps">
-                  <Input value={futuresForm.createFeeBps} onChange={(event) => setFuturesForm((prev) => ({ ...prev, createFeeBps: event.target.value }))} />
+              <Field label="Msg.value (optional)">
+                <Input value={optionAction.msgValue} onChange={(event) => setOptionAction((prev) => ({ ...prev, msgValue: event.target.value }))} />
+              </Field>
+              <div className="grid gap-3 md:grid-cols-2">
+                <ActionButton onClick={() => void previewOptionPayment()} disabled={submittingOptionAction}>
+                  Preview Payment
+                </ActionButton>
+                <ActionButton onClick={() => void handleExerciseOptions()} disabled={submittingOptionAction}>
+                  {submittingOptionAction ? "Submitting..." : "Exercise"}
+                </ActionButton>
+              </div>
+              <StatusLine text={optionPreviewPayment ? `preview payment: ${optionPreviewPayment}` : undefined} />
+              <div className="border-t border-white/10 pt-3">
+                <ActionButton onClick={() => void handleReclaimOptions()} disabled={submittingOptionAction}>
+                  Reclaim Series
+                </ActionButton>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Burn Holder">
+                  <Input value={optionAction.holder} onChange={(event) => setOptionAction((prev) => ({ ...prev, holder: event.target.value }))} />
                 </Field>
-                <Field label="Settle bps">
-                  <Input value={futuresForm.exerciseFeeBps} onChange={(event) => setFuturesForm((prev) => ({ ...prev, exerciseFeeBps: event.target.value }))} />
-                </Field>
-                <Field label="Reclaim bps">
-                  <Input value={futuresForm.reclaimFeeBps} onChange={(event) => setFuturesForm((prev) => ({ ...prev, reclaimFeeBps: event.target.value }))} />
+                <Field label="Burn Amount">
+                  <Input value={optionAction.burnAmount} onChange={(event) => setOptionAction((prev) => ({ ...prev, burnAmount: event.target.value }))} />
                 </Field>
               </div>
-            ) : null}
-            <ActionButton onClick={() => void handleCreateFutures()} disabled={submittingFuturesCreate}>
-              {submittingFuturesCreate ? "Submitting..." : "Create Futures Series"}
-            </ActionButton>
-          </div>
-        </Card>
-      </section>
+              <ActionButton onClick={() => void handleBurnOptionClaims()} disabled={submittingOptionAction}>
+                Burn Reclaimed Claims
+              </ActionButton>
+              <StatusLine
+                text={
+                  optionSeriesDetails
+                    ? `fees (create/exercise/reclaim): ${optionSeriesDetails.createFeeBps}/${optionSeriesDetails.exerciseFeeBps}/${optionSeriesDetails.reclaimFeeBps}`
+                    : undefined
+                }
+              />
+            </div>
+          </Card>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <SectionHeader title="OPTIONS ACTIONS" subtitle="Exercise, reclaim, burn claims" />
-          <div className="mt-4 grid gap-3">
-            <Field label="Series Id">
-              <Input value={optionAction.seriesId} onChange={(event) => setOptionAction((prev) => ({ ...prev, seriesId: event.target.value }))} />
-            </Field>
-            <Field label="Token Balance (selected series)">
-              <Input value={optionTokenBalance} disabled />
-            </Field>
-            <Field label="Amount">
-              <Input value={optionAction.amount} onChange={(event) => setOptionAction((prev) => ({ ...prev, amount: event.target.value }))} />
-            </Field>
-            <Field label="Recipient">
-              <Input value={optionAction.recipient} onChange={(event) => setOptionAction((prev) => ({ ...prev, recipient: event.target.value }))} />
-            </Field>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Max Payment">
-                <Input value={optionAction.maxPayment} onChange={(event) => setOptionAction((prev) => ({ ...prev, maxPayment: event.target.value }))} />
+          <Card>
+            <SectionHeader title="FUTURES ACTIONS" subtitle="Settle, reclaim, burn claims" />
+            <div className="mt-4 grid gap-3">
+              <Field label="Series Id">
+                <Input value={futuresAction.seriesId} onChange={(event) => setFuturesAction((prev) => ({ ...prev, seriesId: event.target.value }))} />
               </Field>
-              <Field label="Min Received">
-                <Input value={optionAction.minReceived} onChange={(event) => setOptionAction((prev) => ({ ...prev, minReceived: event.target.value }))} />
+              <Field label="Token Balance (selected series)">
+                <Input value={futuresTokenBalance} disabled />
               </Field>
-            </div>
-            <Field label="Msg.value (optional)">
-              <Input value={optionAction.msgValue} onChange={(event) => setOptionAction((prev) => ({ ...prev, msgValue: event.target.value }))} />
-            </Field>
-            <div className="grid gap-3 md:grid-cols-2">
-              <ActionButton onClick={() => void previewOptionPayment()} disabled={submittingOptionAction}>
-                Preview Payment
+              <Field label="Amount">
+                <Input value={futuresAction.amount} onChange={(event) => setFuturesAction((prev) => ({ ...prev, amount: event.target.value }))} />
+              </Field>
+              <Field label="Recipient">
+                <Input value={futuresAction.recipient} onChange={(event) => setFuturesAction((prev) => ({ ...prev, recipient: event.target.value }))} />
+              </Field>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Max Payment">
+                  <Input value={futuresAction.maxPayment} onChange={(event) => setFuturesAction((prev) => ({ ...prev, maxPayment: event.target.value }))} />
+                </Field>
+                <Field label="Min Received">
+                  <Input value={futuresAction.minReceived} onChange={(event) => setFuturesAction((prev) => ({ ...prev, minReceived: event.target.value }))} />
+                </Field>
+              </div>
+              <Field label="Msg.value (optional)">
+                <Input value={futuresAction.msgValue} onChange={(event) => setFuturesAction((prev) => ({ ...prev, msgValue: event.target.value }))} />
+              </Field>
+              <div className="grid gap-3 md:grid-cols-2">
+                <ActionButton onClick={() => void previewFuturesPayment()} disabled={submittingFuturesAction}>
+                  Preview Payment
+                </ActionButton>
+                <ActionButton onClick={() => void handleSettleFutures()} disabled={submittingFuturesAction}>
+                  {submittingFuturesAction ? "Submitting..." : "Settle"}
+                </ActionButton>
+              </div>
+              <StatusLine text={futuresPreviewPayment ? `preview payment: ${futuresPreviewPayment}` : undefined} />
+              <div className="border-t border-white/10 pt-3">
+                <ActionButton onClick={() => void handleReclaimFutures()} disabled={submittingFuturesAction}>
+                  Reclaim Series
+                </ActionButton>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Burn Holder">
+                  <Input value={futuresAction.holder} onChange={(event) => setFuturesAction((prev) => ({ ...prev, holder: event.target.value }))} />
+                </Field>
+                <Field label="Burn Amount">
+                  <Input value={futuresAction.burnAmount} onChange={(event) => setFuturesAction((prev) => ({ ...prev, burnAmount: event.target.value }))} />
+                </Field>
+              </div>
+              <ActionButton onClick={() => void handleBurnFuturesClaims()} disabled={submittingFuturesAction}>
+                Burn Reclaimed Claims
               </ActionButton>
-              <ActionButton onClick={() => void handleExerciseOptions()} disabled={submittingOptionAction}>
-                {submittingOptionAction ? "Submitting..." : "Exercise"}
-              </ActionButton>
+              <StatusLine
+                text={
+                  futuresSeriesDetails
+                    ? `fees (create/settle/reclaim): ${futuresSeriesDetails.createFeeBps}/${futuresSeriesDetails.exerciseFeeBps}/${futuresSeriesDetails.reclaimFeeBps}`
+                    : undefined
+                }
+              />
             </div>
-            <StatusLine text={optionPreviewPayment ? `preview payment: ${optionPreviewPayment}` : undefined} />
-            <div className="border-t border-white/10 pt-3">
-              <ActionButton onClick={() => void handleReclaimOptions()} disabled={submittingOptionAction}>
-                Reclaim Series
-              </ActionButton>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Burn Holder">
-                <Input value={optionAction.holder} onChange={(event) => setOptionAction((prev) => ({ ...prev, holder: event.target.value }))} />
-              </Field>
-              <Field label="Burn Amount">
-                <Input value={optionAction.burnAmount} onChange={(event) => setOptionAction((prev) => ({ ...prev, burnAmount: event.target.value }))} />
-              </Field>
-            </div>
-            <ActionButton onClick={() => void handleBurnOptionClaims()} disabled={submittingOptionAction}>
-              Burn Reclaimed Claims
-            </ActionButton>
-            <StatusLine
-              text={
-                optionSeriesDetails
-                  ? `fees (create/exercise/reclaim): ${optionSeriesDetails.createFeeBps}/${optionSeriesDetails.exerciseFeeBps}/${optionSeriesDetails.reclaimFeeBps}`
-                  : undefined
-              }
-            />
-          </div>
-        </Card>
-
-        <Card>
-          <SectionHeader title="FUTURES ACTIONS" subtitle="Settle, reclaim, burn claims" />
-          <div className="mt-4 grid gap-3">
-            <Field label="Series Id">
-              <Input value={futuresAction.seriesId} onChange={(event) => setFuturesAction((prev) => ({ ...prev, seriesId: event.target.value }))} />
-            </Field>
-            <Field label="Token Balance (selected series)">
-              <Input value={futuresTokenBalance} disabled />
-            </Field>
-            <Field label="Amount">
-              <Input value={futuresAction.amount} onChange={(event) => setFuturesAction((prev) => ({ ...prev, amount: event.target.value }))} />
-            </Field>
-            <Field label="Recipient">
-              <Input value={futuresAction.recipient} onChange={(event) => setFuturesAction((prev) => ({ ...prev, recipient: event.target.value }))} />
-            </Field>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Max Payment">
-                <Input value={futuresAction.maxPayment} onChange={(event) => setFuturesAction((prev) => ({ ...prev, maxPayment: event.target.value }))} />
-              </Field>
-              <Field label="Min Received">
-                <Input value={futuresAction.minReceived} onChange={(event) => setFuturesAction((prev) => ({ ...prev, minReceived: event.target.value }))} />
-              </Field>
-            </div>
-            <Field label="Msg.value (optional)">
-              <Input value={futuresAction.msgValue} onChange={(event) => setFuturesAction((prev) => ({ ...prev, msgValue: event.target.value }))} />
-            </Field>
-            <div className="grid gap-3 md:grid-cols-2">
-              <ActionButton onClick={() => void previewFuturesPayment()} disabled={submittingFuturesAction}>
-                Preview Payment
-              </ActionButton>
-              <ActionButton onClick={() => void handleSettleFutures()} disabled={submittingFuturesAction}>
-                {submittingFuturesAction ? "Submitting..." : "Settle"}
-              </ActionButton>
-            </div>
-            <StatusLine text={futuresPreviewPayment ? `preview payment: ${futuresPreviewPayment}` : undefined} />
-            <div className="border-t border-white/10 pt-3">
-              <ActionButton onClick={() => void handleReclaimFutures()} disabled={submittingFuturesAction}>
-                Reclaim Series
-              </ActionButton>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Burn Holder">
-                <Input value={futuresAction.holder} onChange={(event) => setFuturesAction((prev) => ({ ...prev, holder: event.target.value }))} />
-              </Field>
-              <Field label="Burn Amount">
-                <Input value={futuresAction.burnAmount} onChange={(event) => setFuturesAction((prev) => ({ ...prev, burnAmount: event.target.value }))} />
-              </Field>
-            </div>
-            <ActionButton onClick={() => void handleBurnFuturesClaims()} disabled={submittingFuturesAction}>
-              Burn Reclaimed Claims
-            </ActionButton>
-            <StatusLine
-              text={
-                futuresSeriesDetails
-                  ? `fees (create/settle/reclaim): ${futuresSeriesDetails.createFeeBps}/${futuresSeriesDetails.exerciseFeeBps}/${futuresSeriesDetails.reclaimFeeBps}`
-                  : undefined
-              }
-            />
-          </div>
-        </Card>
-      </section>
+          </Card>
+        </section>
+      </div>
     </AppShell>
   );
 }

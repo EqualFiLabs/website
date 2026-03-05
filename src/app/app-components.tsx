@@ -11,16 +11,16 @@ export const TOKENS = [
 
 export function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="flex flex-col gap-2">
-      <h2 className="text-sm font-mono uppercase tracking-[0.2em] text-gray-500">// {title}</h2>
-      {subtitle && <p className="text-sm text-gray-400 font-mono">{subtitle}</p>}
+    <div className="mb-6">
+      <h2 className="text-lg font-semibold text-neutral1">{title}</h2>
+      {subtitle && <p className="text-sm text-neutral2 mt-1">{subtitle}</p>}
     </div>
   );
 }
 
 export function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="card-glow h-full min-h-[180px] min-w-0 flex flex-col border border-white/15 bg-black/60 p-6 rounded-xl shadow-none transition-all overflow-hidden">
+    <div className="rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card h-full min-h-[180px] min-w-0 flex flex-col transition-all overflow-hidden">
       {children}
     </div>
   );
@@ -28,8 +28,8 @@ export function Card({ children }: { children: React.ReactNode }) {
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-2 text-xs font-mono text-gray-400">
-      <span className="uppercase tracking-[0.2em]">{label}</span>
+    <label className="flex flex-col text-xs uppercase tracking-[0.2em] text-neutral3">
+      {label}
       {children}
     </label>
   );
@@ -39,7 +39,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full bg-black border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:border-white/40"
+      className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
     />
   );
 }
@@ -48,7 +48,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="w-full bg-black border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:border-white/40"
+      className="mt-2 w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-sm text-neutral1 outline-none focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
     />
   );
 }
@@ -66,11 +66,10 @@ export function ActionButton({
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`w-full uppercase tracking-widest text-xs font-mono border px-4 py-3 transition-colors ${
-        disabled
-          ? "border-white/20 text-white/40 cursor-not-allowed"
-          : "border-white text-white hover:bg-white hover:text-black"
-      }`}
+      className={`min-h-[44px] rounded-full border px-4 font-semibold text-sm transition-all text-neutral1 mt-2 ${disabled
+          ? "border-surface3 text-neutral3 cursor-not-allowed opacity-50"
+          : "border-surface3 hover:border-accent1"
+        }`}
     >
       {children}
     </button>
@@ -79,5 +78,5 @@ export function ActionButton({
 
 export function StatusLine({ text }: { text?: string }) {
   if (!text) return null;
-  return <p className="text-xs text-gray-500 font-mono mt-2">{text}</p>;
+  return <p className="text-xs text-neutral3 mt-2">{text}</p>;
 }

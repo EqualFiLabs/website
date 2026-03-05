@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { derivativeViewFacetAbi } from "../src/lib/abis/derivativeViewFacet.js";
+import { futuresFacetAbi } from "../src/lib/abis/futuresFacet.ts";
+import { optionsFacetAbi } from "../src/lib/abis/optionsFacet.ts";
 import {
   mapFuturesSeries,
   mapOptionSeries,
@@ -11,11 +13,28 @@ import {
 type AbiFn = {
   type: string;
   name?: string;
+  inputs?: { components?: Array<{ name: string; type: string }> }[];
   outputs?: { components?: Array<{ name: string; type: string }> }[];
 };
 
 const fn = (name: string) =>
   (derivativeViewFacetAbi as AbiFn[]).find((entry) => entry.type === "function" && entry.name === name);
+
+const writeFn = (abi: readonly AbiFn[], name: string) =>
+  abi.find((entry) => entry.type === "function" && entry.name === name);
+
+test("create option/futures ABI includes contractSize in params tuple", () => {
+  const createOption = writeFn(optionsFacetAbi as unknown as AbiFn[], "createOptionSeries");
+  const createFutures = writeFn(futuresFacetAbi as unknown as AbiFn[], "createFuturesSeries");
+  assert.ok(createOption, "createOptionSeries missing");
+  assert.ok(createFutures, "createFuturesSeries missing");
+
+  const optionFields = createOption.inputs?.[0]?.components?.map((c) => `${c.name}:${c.type}`);
+  const futuresFields = createFutures.inputs?.[0]?.components?.map((c) => `${c.name}:${c.type}`);
+
+  assert.ok(optionFields?.includes("contractSize:uint256"), "createOptionSeries missing contractSize");
+  assert.ok(futuresFields?.includes("contractSize:uint256"), "createFuturesSeries missing contractSize");
+});
 
 test("getOptionSeries ABI matches onchain OptionSeries layout", () => {
   const entry = fn("getOptionSeries");
@@ -159,6 +178,7 @@ test("create params preserve custom fee controls and zero fees when disabled", (
     strikePrice: 2000n,
     expiry: 1_700_000_100n,
     totalSize: 10n,
+    contractSize: 1n,
     isCall: true,
     isAmerican: true,
     useCustomFees: false,
@@ -175,6 +195,7 @@ test("create params preserve custom fee controls and zero fees when disabled", (
     forwardPrice: 3000n,
     expiry: 1_700_001_000n,
     totalSize: 12n,
+    contractSize: 1n,
     isEuropean: false,
     useCustomFees: true,
     createFeeBps: 77,
@@ -197,6 +218,7 @@ test("invalid custom fee bps throws", () => {
         strikePrice: 1800n,
         expiry: 1_700_002_000n,
         totalSize: 5n,
+        contractSize: 1n,
         isCall: false,
         isAmerican: false,
         useCustomFees: true,

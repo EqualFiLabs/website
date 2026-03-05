@@ -538,14 +538,14 @@ export default function IlmIsolatedPage() {
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-foam/60">ILM Isolated</p>
                 <h2 className="text-xl sm:text-2xl font-semibold text-foam">Create Lending Market</h2>
-                <p className="mt-1 text-sm text-slate-300">
+                <p className="mt-1 text-sm text-neutral2">
                   Permissionless for enabled non-managed IRMs. Managed-only IRMs require manager/owner authorization.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="min-h-[44px] rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-slate-200 hover:border-mint hover:text-mint transition-colors"
+                className="min-h-[44px] rounded-full border border-surface3 px-3 py-1 text-xs font-semibold text-neutral2 hover:border-accent1 hover:text-accent1 transition-colors"
               >
                 Close
               </button>
@@ -555,7 +555,7 @@ export default function IlmIsolatedPage() {
               <div className="space-y-5 p-4 sm:px-6 sm:pb-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-300">Loan Pool ID</span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-neutral3">Loan Pool ID</span>
                     <input
                       type="number"
                       min="0"
@@ -565,7 +565,7 @@ export default function IlmIsolatedPage() {
                     />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-300">Collateral Pool ID</span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-neutral3">Collateral Pool ID</span>
                     <input
                       type="number"
                       min="0"
@@ -578,7 +578,7 @@ export default function IlmIsolatedPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-300">Oracle Address</span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-neutral3">Oracle Address</span>
                     <input
                       type="text"
                       value={createOracle}
@@ -588,7 +588,7 @@ export default function IlmIsolatedPage() {
                     />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-300">IRM Address</span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-neutral3">IRM Address</span>
                     <input
                       type="text"
                       value={createIrm}
@@ -601,7 +601,7 @@ export default function IlmIsolatedPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-300">LLTV (0..1)</span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-neutral3">LLTV (0..1)</span>
                     <input
                       type="text"
                       value={createLltv}
@@ -611,7 +611,7 @@ export default function IlmIsolatedPage() {
                     />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-300">Module ID</span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-neutral3">Module ID</span>
                     <input
                       type="number"
                       min="0"
@@ -630,7 +630,7 @@ export default function IlmIsolatedPage() {
                   type="button"
                   onClick={runCreateMarket}
                   disabled={pendingWrite}
-                  className="flex-1 min-h-[44px] rounded-full bg-mint px-4 py-2 text-sm font-semibold text-ink shadow-card transition hover:-translate-y-1 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 min-h-[44px] rounded-full bg-accent1 px-4 py-2 text-sm font-semibold text-ink shadow-card transition hover:-translate-y-1 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {pendingWrite ? "Submitting..." : "Create Market"}
                 </button>

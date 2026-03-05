@@ -11,6 +11,7 @@ import { derivativeViewFacetAbi } from "@/lib/abis/derivativeViewFacet";
 import useActiveChainId from "@/lib/hooks/useActiveChainId";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import usePoolsConfig from "@/lib/hooks/usePoolsConfig";
+import useProtocolAddresses from "@/lib/hooks/useProtocolAddresses";
 import { isMamSwapRouteActive, pickSwapRouteKind, shouldCompareMamOnSwap } from "@/lib/mamRouting";
 import { tokensFromConfig } from "@/lib/tokens";
 import { AppShell } from "../../app-shell";
@@ -60,6 +61,7 @@ export default function SwapPage() {
   const activeChainId = useActiveChainId();
   const publicClient = useActivePublicClient();
   const poolsConfig = usePoolsConfig();
+  const { diamondAddress } = useProtocolAddresses();
   const tokens = useMemo(() => tokensFromConfig(poolsConfig) as SwapToken[], [poolsConfig]);
   const defaultIn = toSwapToken(tokens[0]);
   const defaultOut = toSwapToken(tokens[1]);
@@ -84,9 +86,9 @@ export default function SwapPage() {
 
   const missingContracts = useMemo(() => {
     const missing = [] as string[];
-    if (!process.env.NEXT_PUBLIC_DIAMOND_ADDRESS) missing.push("Diamond");
+    if (!diamondAddress) missing.push("Diamond");
     return missing;
-  }, []);
+  }, [diamondAddress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,13 +120,13 @@ export default function SwapPage() {
 
   useEffect(() => {
     const run = async () => {
-      if (!publicClient || !swapIn?.address || !swapOut?.address) {
+      if (!publicClient || !diamondAddress || !swapIn?.address || !swapOut?.address) {
         setOnchainAuctions([]);
         return;
       }
       try {
         const [ids] = (await publicClient!.readContract({
-          address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+          address: diamondAddress as `0x${string}`,
           abi: derivativeViewFacetAbi,
           functionName: "getAuctionsByPair",
           args: [swapIn.address, swapOut.address, BigInt(0), BigInt(20)],
@@ -137,7 +139,7 @@ export default function SwapPage() {
         const auctions = await Promise.all(
           uniqueIds.map(async (id: number) => {
             const a = await publicClient!.readContract({
-              address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+              address: diamondAddress as `0x${string}`,
               abi: derivativeViewFacetAbi,
               functionName: "getAmmAuction",
               args: [BigInt(id)],
@@ -161,19 +163,19 @@ export default function SwapPage() {
       }
     };
     run();
-  }, [publicClient, swapIn?.address, swapOut?.address]);
+  }, [publicClient, diamondAddress, swapIn?.address, swapOut?.address]);
 
   // Fetch MAM curves for the selected pair when toggle is on
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      if (!includeMamCurves || !publicClient || !swapIn?.address || !swapOut?.address) {
+      if (!includeMamCurves || !publicClient || !diamondAddress || !swapIn?.address || !swapOut?.address) {
         if (!cancelled) setMamCurveIds([]);
         return;
       }
       try {
         const [ids] = (await publicClient.readContract({
-          address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+          address: diamondAddress as `0x${string}`,
           abi: mamCurveViewAbi,
           functionName: "getCurvesByPair",
           args: [swapIn.address, swapOut.address, BigInt(0), BigInt(20)],
@@ -187,7 +189,7 @@ export default function SwapPage() {
     return () => {
       cancelled = true;
     };
-  }, [includeMamCurves, publicClient, swapIn?.address, swapOut?.address]);
+  }, [includeMamCurves, publicClient, diamondAddress, swapIn?.address, swapOut?.address]);
 
   useEffect(() => {
     const run = () => {
@@ -281,7 +283,7 @@ export default function SwapPage() {
         onchainAuctionsLength: onchainAuctions.length,
       });
 
-      if (!publicClient || !swapAmount || Number(swapAmount) <= 0 || eligibleAuctions.length === 0) {
+      if (!publicClient || !diamondAddress || !swapAmount || Number(swapAmount) <= 0 || eligibleAuctions.length === 0) {
         console.log('[DEBUG] Early return - not enough data');
         setExpectedOut("");
         if (!hasManualMinOut) setSwapMinOut("");
@@ -299,7 +301,7 @@ export default function SwapPage() {
         const previewAuction = async (auction: SwapAuction): Promise<bigint> => {
           if (auction.type === "community") {
             const preview = await publicClient.readContract({
-              address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+              address: diamondAddress as `0x${string}`,
               abi: communityAuctionAbi,
               functionName: "previewCommunitySwap",
               args: [BigInt(auction.id), swapIn.address, amountInRaw],
@@ -307,7 +309,7 @@ export default function SwapPage() {
             return preview[0] ?? BigInt(0);
           }
           const preview = await publicClient.readContract({
-            address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+            address: diamondAddress as `0x${string}`,
             abi: ammAuctionAbi,
             functionName: "previewSwap",
             args: [BigInt(auction.id), swapIn.address, amountInRaw],
@@ -353,7 +355,7 @@ export default function SwapPage() {
           const fillAmounts = mamCurveIds.map(() => amountInRaw);
           try {
             const [outs, , oks] = (await publicClient.readContract({
-              address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+              address: diamondAddress as `0x${string}`,
               abi: mamCurveViewAbi,
               functionName: "quoteCurvesExactInBatch",
               args: [mamCurveIds, fillAmounts],
@@ -405,7 +407,7 @@ export default function SwapPage() {
     };
 
     run();
-  }, [swapAmount, swapIn, swapOut, eligibleAuctions, selectedAuction, autoRoute, publicClient, hasManualMinOut, includeMamCurves, mamCurveIds, auctions.length, onchainAuctions.length]);
+  }, [swapAmount, swapIn, swapOut, eligibleAuctions, selectedAuction, autoRoute, publicClient, diamondAddress, hasManualMinOut, includeMamCurves, mamCurveIds, auctions.length, onchainAuctions.length]);
 
   const mamRouteActive = isMamSwapRouteActive(selectedRoute?.kind, autoRoute, includeMamCurves);
   const summary = useMemo(() => {
@@ -420,6 +422,7 @@ export default function SwapPage() {
     !isConnected ||
     !swapAmount ||
     isPending ||
+    !diamondAddress ||
     !swapIn ||
     !swapOut ||
     eligibleAuctions.length === 0;
@@ -428,7 +431,8 @@ export default function SwapPage() {
     <AppShell title="Swap">
       {missingContracts.length > 0 && (
         <div className="border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs font-mono text-yellow-200">
-          Missing contract addresses: {missingContracts.join(", ")}. Configure in <span className="font-bold">.env</span> to enable onchain actions.
+          Missing contract addresses: {missingContracts.join(", ")}. Configure
+          <span className="font-bold"> NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY / TESTNET</span> to enable onchain actions.
         </div>
       )}
       <section className="flex justify-center">
@@ -634,7 +638,7 @@ export default function SwapPage() {
                 if (mamRouteActive && selectedRoute?.kind === "mam" && publicClient) {
                   const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
                   const maxQuote = await publicClient.readContract({
-                    address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                    address: diamondAddress as `0x${string}`,
                     abi: mamCurveExecutionAbi,
                     functionName: "previewCurveQuote",
                     args: [selectedRoute.curveId, amountIn],
@@ -643,7 +647,7 @@ export default function SwapPage() {
                   let value = undefined;
                   try {
                     const fillView = await publicClient.readContract({
-                      address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                      address: diamondAddress as `0x${string}`,
                       abi: mamCurveExecutionAbi,
                       functionName: "loadCurveForFill",
                       args: [selectedRoute.curveId],
@@ -660,7 +664,7 @@ export default function SwapPage() {
                   }
 
                   writeContract({
-                    address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                    address: diamondAddress as `0x${string}`,
                     abi: mamCurveExecutionAbi,
                     functionName: "executeCurveSwap",
                     args: [
@@ -682,7 +686,7 @@ export default function SwapPage() {
                   : eligibleAuctions.find((m) => String(m.id) === selectedAuction) || eligibleAuctions[0];
                 const isCommunity = pick.type === "community";
                 writeContract({
-                  address: process.env.NEXT_PUBLIC_DIAMOND_ADDRESS as `0x${string}`,
+                  address: diamondAddress as `0x${string}`,
                   abi: isCommunity ? communityAuctionAbi : ammAuctionAbi,
                   functionName: isCommunity ? "swapExactIn" : "swapExactInOrFinalize",
                   args: [

@@ -1,3 +1,5 @@
+import { parseUnits } from "viem";
+
 const BPS_MAX = 10_000;
 
 type PoolLike = {
@@ -52,6 +54,64 @@ export function parseBps(input: string, label: string): number {
     throw new Error(`${label} must be between 0 and ${BPS_MAX}`);
   }
   return parsed;
+}
+
+export function parseTokenAmount(input: string, decimals: number, label: string): bigint {
+  const raw = input.trim();
+  if (!raw) {
+    throw new Error(`${label} is required`);
+  }
+
+  // Normalize common user input forms before strict validation.
+  // Examples: ".5" -> "0.5", "1." -> "1.0", "0,5" -> "0.5".
+  let value = raw;
+  if (value.includes(",")) {
+    if (value.includes(".")) {
+      throw new Error(`${label} must be a non-negative number`);
+    }
+    value = value.replace(",", ".");
+  }
+  if (value.startsWith(".")) {
+    value = `0${value}`;
+  }
+  if (value.endsWith(".")) {
+    value = `${value}0`;
+  }
+
+  if (!/^\d+(\.\d+)?$/.test(value)) {
+    throw new Error(`${label} must be a non-negative number`);
+  }
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) {
+    throw new Error(`Invalid decimals for ${label}`);
+  }
+  const [, fraction = ""] = value.split(".");
+  if (fraction.length > decimals) {
+    throw new Error(`${label} has too many decimal places (max ${decimals})`);
+  }
+  try {
+    return parseUnits(value, decimals);
+  } catch {
+    throw new Error(`${label} has too many decimal places (max ${decimals})`);
+  }
+}
+
+export function parseExpirySeconds(input: string, label: string): bigint {
+  const value = input.trim();
+  if (!value) {
+    throw new Error(`${label} is required`);
+  }
+  if (/^\d+$/.test(value)) {
+    return BigInt(value);
+  }
+
+  const millis = Date.parse(value);
+  if (!Number.isFinite(millis) || Number.isNaN(millis)) {
+    throw new Error(`${label} must be a valid date/time`);
+  }
+  if (millis < 0) {
+    throw new Error(`${label} must be a valid date/time`);
+  }
+  return BigInt(Math.floor(millis / 1000));
 }
 
 export function formatUnixTimestamp(value: bigint | number | string | null | undefined): string {

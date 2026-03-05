@@ -1,15 +1,12 @@
 import { useMemo } from 'react'
 import { useReadContracts } from 'wagmi'
 import { communityAuctionFacetAbi } from '../abis/communityAuctionFacet'
-import usePoolsConfig from './usePoolsConfig'
+import useProtocolAddresses from './useProtocolAddresses'
 import usePositionNFTs from './usePositionNFTs'
 
 export function useCommunityParticipation(auction) {
   const { nfts } = usePositionNFTs()
-  const poolsConfig = usePoolsConfig()
-  
-  const diamondAddress =
-    process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || poolsConfig?.pools?.[0]?.lendingPoolAddress || ''
+  const { diamondAddress } = useProtocolAddresses()
 
   // Filter unique positions to check
   // We need to map positionKey (bytes32) back to tokenId for the exit action

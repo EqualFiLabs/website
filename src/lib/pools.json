@@ -1,23 +1,23 @@
 {
-  "31337": {
-    "diamondAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3",
-    "positionNFTAddress": "0x82c098efe320a6226dda913e286bd309994e310c",
-    "faucetAddress": "0x1261959bc4a9094b360523b53f7c56af373881ee",
+  "foundry": {
+    "diamondAddress": "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455",
+    "positionNFTAddress": "0x6ee471e753ba98246152528bb76302401848f9cf",
+    "faucetAddress": "0x23f458e00f9b84283724cd5a68bfee47ff060a06",
     "indexTokens": [
       {
         "id": "EQ-ETH",
         "indexTicker": "EQ-ETH",
-        "indexTokenAddress": "0xE30846d9bB287d8F2EA830505D6edDf0Ff76d4dd"
+        "indexTokenAddress": "0x91ec682537438775ecc53cdf46b7184f74d99473"
       },
       {
         "id": "EQ-BTC",
         "indexTicker": "EQ-BTC",
-        "indexTokenAddress": "0x40022C72473c2e184564141dF7d872944Ca18DF0"
+        "indexTokenAddress": "0x331d0508a0c0e877a3c7f4a68d0e6a5f7249cf82"
       },
       {
         "id": "EQ-USD",
         "indexTicker": "EQ-USD",
-        "indexTokenAddress": "0x60D0b963e4ec52E6e46C88b03BcA63Bab19f52A4"
+        "indexTokenAddress": "0x954258ea01be231d8a5f21e14352c15e5764394d"
       }
     ],
     "pools": [
@@ -27,8 +27,8 @@
         "tokenName": "Rocket Pool ETH",
         "ticker": "rETH",
         "decimals": 18,
-        "tokenAddress": "0x6a2a2edd60050617b9508e6d11901e25627e05fd",
-        "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
+        "tokenAddress": "0xd651bdab64a34fc8f8c0d4044cbe742ca8d45314",
+        "lendingPoolAddress": "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455"
       },
       {
         "id": "stETH",
@@ -36,8 +36,8 @@
         "tokenName": "Lido Staked ETH",
         "ticker": "stETH",
         "decimals": 18,
-        "tokenAddress": "0xd066def718cfdf12a316ba108a4bed93052e504c",
-        "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
+        "tokenAddress": "0x4cced5f3c2a8f60b67d608f9950cacc5c62c2e68",
+        "lendingPoolAddress": "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455"
       },
       {
         "id": "WBTC",
@@ -45,8 +45,8 @@
         "tokenName": "Wrapped Bitcoin",
         "ticker": "WBTC",
         "decimals": 8,
-        "tokenAddress": "0x70e40142899ab58fda999886d616c64b7a78719a",
-        "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
+        "tokenAddress": "0x6b9b94d9737fc60bf334133604985756f32e2f94",
+        "lendingPoolAddress": "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455"
       },
       {
         "id": "WETH",
@@ -54,8 +54,8 @@
         "tokenName": "Wrapped Ethereum",
         "ticker": "WETH",
         "decimals": 18,
-        "tokenAddress": "0x3d461b43473d89fe4e544cd5aca3148c268eb298",
-        "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
+        "tokenAddress": "0x55797c9dc20aad0942139ccf6ac5942c721e6dc7",
+        "lendingPoolAddress": "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455"
       },
       {
         "id": "USDC",
@@ -63,8 +63,8 @@
         "tokenName": "USD Coin",
         "ticker": "USDC",
         "decimals": 6,
-        "tokenAddress": "0x30f89ed1ce6a8d4ea6cdd47f5e657d52496baa82",
-        "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
+        "tokenAddress": "0x139abb8aceb0dadf56fd8c9b16e63343460ec5d9",
+        "lendingPoolAddress": "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455"
       },
       {
         "id": "ETH",
@@ -73,7 +73,7 @@
         "ticker": "ETH",
         "decimals": 18,
         "tokenAddress": "0x0000000000000000000000000000000000000000",
-        "lendingPoolAddress": "0xbcdc0d1555c4875fd3cd08d1227530c9b8e698c3"
+        "lendingPoolAddress": "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455"
       }
     ],
     "ilmIsolatedMarkets": []

@@ -12,14 +12,14 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
   const postData = await getPostData(slug);
 
   return (
-    <div className="min-h-screen grid-bg flex flex-col items-center justify-center p-4 md:p-12">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-12">
       {/* Debug: show the slug being used to fetch the post */}
       <div className="fixed bottom-4 right-4 text-xs text-gray-600 font-mono bg-black/70 px-2 py-1 border border-white/10">
         slug: {String(slug)}
       </div>
       <div className="max-w-3xl w-full border border-white/20 bg-black p-8 md:p-16 relative">
         <div className="absolute top-0 left-0 bg-white text-black px-4 py-1 font-mono text-xs font-bold uppercase tracking-widest">
-            TRANS_LOG // {postData.date}
+          TRANS_LOG // {postData.date}
         </div>
 
         <div className="mb-8 mt-4">

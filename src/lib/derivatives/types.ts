@@ -54,6 +54,7 @@ export interface CreateOptionSeriesInput extends DerivativeFeeSelection {
   strikePrice: bigint;
   expiry: bigint;
   totalSize: bigint;
+  contractSize: bigint;
   isCall: boolean;
   isAmerican: boolean;
 }
@@ -65,5 +66,6 @@ export interface CreateFuturesSeriesInput extends DerivativeFeeSelection {
   forwardPrice: bigint;
   expiry: bigint;
   totalSize: bigint;
+  contractSize: bigint;
   isEuropean: boolean;
 }

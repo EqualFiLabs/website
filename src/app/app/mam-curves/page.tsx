@@ -6,6 +6,7 @@ import { formatUnits, parseUnits } from "viem";
 import useBufferedWriteContract from "@/lib/hooks/useBufferedWriteContract";
 import useActivePublicClient from "@/lib/hooks/useActivePublicClient";
 import usePoolsConfig from "@/lib/hooks/usePoolsConfig";
+import useProtocolAddresses from "@/lib/hooks/useProtocolAddresses";
 import usePositionNFTs from "@/lib/hooks/usePositionNFTs";
 import { useToasts } from "@/components/common/ToastProvider";
 import useExplorerUrl from "@/lib/hooks/useExplorerUrl";
@@ -75,16 +76,12 @@ export default function MamCurvesPage() {
   const { address, isConnected } = useAccount();
   const publicClient = useActivePublicClient();
   const poolsConfig = usePoolsConfig();
+  const { diamondAddress } = useProtocolAddresses();
   const { nfts } = usePositionNFTs();
   const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
   const { buildTxUrl } = useExplorerUrl();
   const tokens = useMemo(() => tokensFromConfig(poolsConfig), [poolsConfig]);
-
-  const diamondAddress = useMemo(() => {
-    const v = (process.env.NEXT_PUBLIC_DIAMOND_ADDRESS || "").trim();
-    return v ? v : undefined;
-  }, []);
 
   const positionIdOptions = useMemo(() => buildPositionIdOptions(nfts), [nfts]);
   const poolIdOptions = useMemo(
@@ -153,7 +150,7 @@ export default function MamCurvesPage() {
 
   // --- Helpers ---
   const ensureReady = useCallback(() => {
-    if (!diamondAddress) throw new Error("NEXT_PUBLIC_DIAMOND_ADDRESS is missing");
+    if (!diamondAddress) throw new Error("diamondAddress is missing from pools config");
     if (!publicClient || !writeContractAsync) throw new Error("Wallet client unavailable");
     if (!isConnected || !address) throw new Error("Connect wallet to continue");
     return { diamondAddress, account: address };
@@ -460,7 +457,7 @@ export default function MamCurvesPage() {
 
   const readyStatus = diamondAddress
     ? "MAM Curve flows ready"
-    : "Set NEXT_PUBLIC_DIAMOND_ADDRESS to enable transactions";
+    : "Set diamondAddress in NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY/TESTNET";
 
   return (
     <AppShell title="MAM Curves">

@@ -49,7 +49,7 @@ const normalizeFeeSelection = (fees: DerivativeFeeSelection) => {
 
 export const derivativesV1Capabilities = Object.freeze({
   operatorFlows: false,
-  customFees: true,
+  customFees: false,
 });
 
 export const mapOptionSeries = (series: StructLike): OptionSeries => ({
@@ -101,6 +101,7 @@ export const toCreateOptionSeriesParams = (input: CreateOptionSeriesInput) => {
     strikePrice: input.strikePrice,
     expiry: input.expiry,
     totalSize: input.totalSize,
+    contractSize: input.contractSize,
     isCall: input.isCall,
     isAmerican: input.isAmerican,
     useCustomFees: fees.useCustomFees,
@@ -119,6 +120,7 @@ export const toCreateFuturesSeriesParams = (input: CreateFuturesSeriesInput) => 
     forwardPrice: input.forwardPrice,
     expiry: input.expiry,
     totalSize: input.totalSize,
+    contractSize: input.contractSize,
     isEuropean: input.isEuropean,
     useCustomFees: fees.useCustomFees,
     createFeeBps: fees.createFeeBps,
