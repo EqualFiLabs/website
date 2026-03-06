@@ -432,7 +432,8 @@ export default function SwapPage() {
       {missingContracts.length > 0 && (
         <div className="border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs font-mono text-yellow-200">
           Missing contract addresses: {missingContracts.join(", ")}. Configure
-          <span className="font-bold"> NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY / TESTNET</span> to enable onchain actions.
+          <span className="font-bold"> NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY / ROBINHOOD_TESTNET / TESTNET</span> to
+          enable onchain actions.
         </div>
       )}
       <section className="flex justify-center">

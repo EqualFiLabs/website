@@ -79,6 +79,7 @@ export interface IndexToken {
   id: string;
   indexTicker: string;
   indexTokenAddress: string;
+  indexId?: number;
 }
 
 export interface TokenInfo {
@@ -96,7 +97,7 @@ export interface IndexView {
 }
 
 export interface IndexOption {
-  indexId: string;
+  indexId: string | number;
   indexTicker: string;
   indexTokenAddress: string;
 }

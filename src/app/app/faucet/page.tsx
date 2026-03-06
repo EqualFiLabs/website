@@ -258,6 +258,8 @@ export default function FaucetPage() {
               Set <code className="bg-surface2 px-2 py-1 rounded">faucetAddress</code> in
               <code className="bg-surface2 px-2 py-1 rounded ml-1">NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY</code>
               or
+              <code className="bg-surface2 px-2 py-1 rounded ml-1">NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET</code>
+              or
               <code className="bg-surface2 px-2 py-1 rounded ml-1">NEXT_PUBLIC_POOLS_CONFIG_TESTNET</code>.
             </p>
           </div>

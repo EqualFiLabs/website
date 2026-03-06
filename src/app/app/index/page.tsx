@@ -23,9 +23,9 @@ import {
 } from '@/lib/indexMintQuote'
 import {
   computeAvailablePrincipal,
-  computeNetBorrow,
-  computeOriginationFee,
   durationDaysToSeconds,
+  hasDefinedValue,
+  resolveLoanActionPositionId,
 } from '@/lib/indexLending'
 import {
   indexerStatusLabel,
@@ -37,6 +37,7 @@ import {
 
 const normalizeAddress = (value: any) => (value ? value.toLowerCase() : '')
 const toBigInt = (value: any) => (typeof value === 'bigint' ? value : BigInt(value ?? 0))
+const sumBigInt = (values: bigint[]) => values.reduce((acc, value) => acc + toBigInt(value), 0n)
 type IndexLoanStatus = {
   available: boolean
   reason?: string
@@ -66,6 +67,7 @@ export default function IndexPage() {
   const diamondAddress = (poolsConfig.diamondAddress || '').trim()
   const positionNFTAddress = (poolsConfig.positionNFTAddress || '').trim()
   const activeChainId = publicClient?.chain?.id ?? null
+  const nativeSymbol = publicClient?.chain?.nativeCurrency?.symbol || 'ETH'
   const diamondAddressLower = diamondAddress.toLowerCase()
 
   console.log('[Index] poolsConfig:', poolsConfig)
@@ -95,7 +97,7 @@ export default function IndexPage() {
   const configIndexOptions = useMemo(
     () =>
       (poolsConfig.indexTokens || []).map((token: any, idx: any) => ({
-        indexId: idx,
+        indexId: Number.isFinite(Number(token.indexId)) ? Number(token.indexId) : idx,
         label: token.id || token.indexTicker || `Index ${idx}`,
         tokenAddress: token.indexTokenAddress || '',
       })),
@@ -115,8 +117,14 @@ export default function IndexPage() {
     createdIndexes.forEach(add)
     return combined
   }, [configIndexOptions, createdIndexes])
-
   const [selectedIndexId, setSelectedIndexId] = useState<any>(indexOptions[0]?.indexId ?? 0)
+  const selectedIndexOption = useMemo(
+    () =>
+      indexOptions.find(
+        (option: any) => Number(option.indexId) === Number(selectedIndexId),
+      ) || null,
+    [indexOptions, selectedIndexId],
+  )
   const [manualIndexId, setManualIndexId] = useState<string>('')
   const [indexView, setIndexView] = useState<any>(null)
   const [indexError, setIndexError] = useState<string>('')
@@ -139,19 +147,24 @@ export default function IndexPage() {
   const [requiredAssets, setRequiredAssets] = useState<any[]>([])
   const [requiredAssetsLoading, setRequiredAssetsLoading] = useState<boolean>(false)
   const [lendingPositionId, setLendingPositionId] = useState<string>('')
-  const [lendingAsset, setLendingAsset] = useState<string>('')
   const [collateralUnitsInput, setCollateralUnitsInput] = useState<string>('')
-  const [borrowAmountInput, setBorrowAmountInput] = useState<string>('')
   const [durationDaysInput, setDurationDaysInput] = useState<string>('30')
   const [extendDaysInput, setExtendDaysInput] = useState<string>('30')
   const [loanIdInput, setLoanIdInput] = useState<string>('')
   const [lendingConfig, setLendingConfig] = useState<any>(null)
   const [lendingConfigLoading, setLendingConfigLoading] = useState<boolean>(false)
   const [lendingConfigError, setLendingConfigError] = useState<string>('')
-  const [maxBorrowableRaw, setMaxBorrowableRaw] = useState<bigint>(0n)
-  const [maxBorrowableLoading, setMaxBorrowableLoading] = useState<boolean>(false)
+  const [borrowQuote, setBorrowQuote] = useState<any[]>([])
+  const [borrowQuoteLoading, setBorrowQuoteLoading] = useState<boolean>(false)
+  const [borrowFlatFeeNative, setBorrowFlatFeeNative] = useState<bigint>(0n)
+  const [borrowFlatFeeLoading, setBorrowFlatFeeLoading] = useState<boolean>(false)
+  const [borrowFlatFeeError, setBorrowFlatFeeError] = useState<string>('')
   const [indexPoolSnapshot, setIndexPoolSnapshot] = useState<any>(null)
   const [loanDetails, setLoanDetails] = useState<any>(null)
+  const [loanBasketQuote, setLoanBasketQuote] = useState<any[]>([])
+  const [loanBasketLoading, setLoanBasketLoading] = useState<boolean>(false)
+  const [loanFlatFeeNative, setLoanFlatFeeNative] = useState<bigint>(0n)
+  const [loanFlatFeeLoading, setLoanFlatFeeLoading] = useState<boolean>(false)
   const [loanLoading, setLoanLoading] = useState<boolean>(false)
   const [lendingRefreshKey, setLendingRefreshKey] = useState<number>(0)
   const [lendingPositionKey, setLendingPositionKey] = useState<string>('')
@@ -251,11 +264,17 @@ export default function IndexPage() {
     return Array.from(seen.values()).map((nft: PositionNFT) => ({
       tokenId: nft.tokenId,
       label: `#${nft.tokenId}`,
+      positionKey: String((nft as any).positionAddress || (nft as any).positionKey || '').toLowerCase(),
     }))
   }, [nfts])
 
   const resolvedPositionId = positionId || positionOptions[0]?.tokenId || ''
   const resolvedLendingPositionId = lendingPositionId || positionOptions[0]?.tokenId || ''
+  const resolvedLoanPositionId = useMemo(
+    () => resolveLoanActionPositionId(loanDetails?.positionKey, positionOptions, ''),
+    [loanDetails?.positionKey, positionOptions],
+  )
+  const effectiveLoanActionPositionId = resolvedLoanPositionId || resolvedLendingPositionId || ''
 
   const parsedUnits = useMemo(() => {
     if (!units) return BigInt(0)
@@ -267,10 +286,6 @@ export default function IndexPage() {
   }, [units])
 
   const unitsValid = parsedUnits > BigInt(0) && parsedUnits % INDEX_SCALE === BigInt(0)
-  const lendingAssetDecimals = useMemo(() => {
-    const meta = assetMeta.get(normalizeAddress(lendingAsset))
-    return meta?.decimals ?? 18
-  }, [assetMeta, lendingAsset])
   const parsedCollateralUnits = useMemo(() => {
     if (!collateralUnitsInput) return 0n
     try {
@@ -280,14 +295,6 @@ export default function IndexPage() {
     }
   }, [collateralUnitsInput])
   const collateralUnitsValid = parsedCollateralUnits > 0n && parsedCollateralUnits % INDEX_SCALE === 0n
-  const parsedBorrowAmount = useMemo(() => {
-    if (!borrowAmountInput) return 0n
-    try {
-      return parseUnits(borrowAmountInput, lendingAssetDecimals)
-    } catch {
-      return 0n
-    }
-  }, [borrowAmountInput, lendingAssetDecimals])
   const parsedDurationSeconds = useMemo(() => {
     try {
       return durationDaysToSeconds(durationDaysInput)
@@ -306,22 +313,43 @@ export default function IndexPage() {
     if (!lendingConfig) return false
     return (
       toBigInt(lendingConfig.ltvBps) > 0n ||
-      toBigInt(lendingConfig.originationFeeBps) > 0n ||
       toBigInt(lendingConfig.minDuration) > 0n ||
       toBigInt(lendingConfig.maxDuration) > 0n
     )
   }, [lendingConfig])
-  const borrowFeePreview = useMemo(
-    () => computeOriginationFee(parsedBorrowAmount, toBigInt(lendingConfig?.originationFeeBps ?? 0)),
-    [parsedBorrowAmount, lendingConfig],
+  const borrowQuoteRows = useMemo(
+    () =>
+      (borrowQuote || []).map((row: any) => {
+        const principal = toBigInt(row?.principal ?? 0)
+        const meta = assetMeta.get(normalizeAddress(row?.asset))
+        return {
+          asset: row?.asset,
+          ticker: meta?.ticker || 'UNK',
+          decimals: meta?.decimals ?? 18,
+          principal,
+        }
+      }),
+    [assetMeta, borrowQuote],
   )
-  const borrowNetPreview = useMemo(
-    () => computeNetBorrow(parsedBorrowAmount, toBigInt(lendingConfig?.originationFeeBps ?? 0)),
-    [parsedBorrowAmount, lendingConfig],
+  const borrowQuoteTotals = useMemo(
+    () => ({
+      principal: sumBigInt(borrowQuoteRows.map((row: any) => row.principal)),
+    }),
+    [borrowQuoteRows],
   )
-  const extendFeePreview = useMemo(
-    () => computeOriginationFee(toBigInt(loanDetails?.principal ?? 0), toBigInt(lendingConfig?.originationFeeBps ?? 0)),
-    [loanDetails, lendingConfig],
+  const loanBasketRows = useMemo(
+    () =>
+      (loanBasketQuote || []).map((row: any) => {
+        const principal = toBigInt(row?.principal ?? 0)
+        const meta = assetMeta.get(normalizeAddress(row?.asset))
+        return {
+          asset: row?.asset,
+          ticker: meta?.ticker || 'UNK',
+          decimals: meta?.decimals ?? 18,
+          principal,
+        }
+      }),
+    [assetMeta, loanBasketQuote],
   )
 
   const mintDisabledReason = useMemo(() => {
@@ -338,6 +366,12 @@ export default function IndexPage() {
       setLendingPositionId(String(positionOptions[0].tokenId))
     }
   }, [lendingPositionId, positionOptions])
+
+  useEffect(() => {
+    if (!resolvedLoanPositionId) return
+    if (String(lendingPositionId || '') === String(resolvedLoanPositionId)) return
+    setLendingPositionId(String(resolvedLoanPositionId))
+  }, [lendingPositionId, resolvedLoanPositionId])
 
   useEffect(() => {
     let cancelled = false
@@ -369,19 +403,6 @@ export default function IndexPage() {
       cancelled = true
     }
   }, [positionNFTAddress, publicClient, resolvedLendingPositionId])
-
-  useEffect(() => {
-    const assets = indexView?.assets || []
-    if (!assets.length) {
-      setLendingAsset('')
-      return
-    }
-    const current = normalizeAddress(lendingAsset)
-    const exists = assets.some((asset: any) => normalizeAddress(asset) === current)
-    if (!exists) {
-      setLendingAsset(assets[0])
-    }
-  }, [indexView?.assets, lendingAsset])
 
   useEffect(() => {
     let cancelled = false
@@ -456,14 +477,65 @@ export default function IndexPage() {
           functionName: 'getPositionEncumbrance',
           args: [BigInt(resolvedLendingPositionId), indexPoolId],
         })
+        let effectivePositionId = String(resolvedLendingPositionId)
+        let effectivePoolData: any = poolData
+        let effectiveEncumbrance: any = encumbrance
+        let effectivePrincipalRaw = toBigInt(effectivePoolData?.principal ?? 0)
+        let effectiveIsMember = Boolean(effectivePoolData?.isMember) || effectivePrincipalRaw > 0n
 
-        const principalRaw = toBigInt(poolData?.principal ?? 0)
-        const totalEncumberedRaw = toBigInt(encumbrance?.totalEncumbered ?? 0)
+        // If the currently selected position is not a member, try to auto-select
+        // another owned position that is a member of this index token pool.
+        if (!effectiveIsMember && positionOptions.length > 1) {
+          for (const option of positionOptions) {
+            const tokenId = String(option?.tokenId ?? '').trim()
+            if (!tokenId || tokenId === effectivePositionId) continue
+            try {
+              const candidatePoolData: any = await publicClient.readContract({
+                address: diamondAddress as `0x${string}`,
+                abi: multiPoolPositionViewFacetAbi,
+                functionName: 'getPositionPoolDataPoolOnly',
+                args: [BigInt(tokenId), indexPoolId],
+              })
+              const candidatePrincipalRaw = toBigInt(candidatePoolData?.principal ?? 0)
+              const candidateIsMember = Boolean(candidatePoolData?.isMember) || candidatePrincipalRaw > 0n
+              if (!candidateIsMember) continue
+
+              let candidateEncumbrance: any = { totalEncumbered: 0n }
+              try {
+                candidateEncumbrance = await publicClient.readContract({
+                  address: diamondAddress as `0x${string}`,
+                  abi: positionViewFacetAbi,
+                  functionName: 'getPositionEncumbrance',
+                  args: [BigInt(tokenId), indexPoolId],
+                })
+              } catch {
+                // Keep a zero encumbrance fallback if this read fails.
+              }
+
+              effectivePositionId = tokenId
+              effectivePoolData = candidatePoolData
+              effectiveEncumbrance = candidateEncumbrance
+              effectivePrincipalRaw = candidatePrincipalRaw
+              effectiveIsMember = true
+
+              if (!cancelled && tokenId !== String(lendingPositionId || '')) {
+                setLendingPositionId(tokenId)
+              }
+              break
+            } catch {
+              // Skip this candidate and try the next one.
+            }
+          }
+        }
+
+        const principalRaw = effectivePrincipalRaw
+        const totalEncumberedRaw = toBigInt(effectiveEncumbrance?.totalEncumbered ?? 0)
         const availableRaw = computeAvailablePrincipal(principalRaw, totalEncumberedRaw)
         if (!cancelled) {
           setIndexPoolSnapshot({
             poolId: indexPoolId,
-            isMember: Boolean(poolData?.isMember),
+            positionId: effectivePositionId,
+            isMember: effectiveIsMember,
             principalRaw,
             totalEncumberedRaw,
             availableRaw,
@@ -480,44 +552,99 @@ export default function IndexPage() {
     return () => {
       cancelled = true
     }
-  }, [diamondAddress, indexView?.token, lendingRefreshKey, publicClient, resolvedLendingPositionId])
+  }, [
+    diamondAddress,
+    indexView?.token,
+    lendingPositionId,
+    lendingRefreshKey,
+    positionOptions,
+    publicClient,
+    resolvedLendingPositionId,
+  ])
 
   useEffect(() => {
     let cancelled = false
 
-    const loadMaxBorrowable = async () => {
-      if (!publicClient || !diamondAddress || !lendingAsset || parsedCollateralUnits <= 0n) {
+    const loadBorrowQuote = async () => {
+      if (!publicClient || !diamondAddress || selectedIndexId === null || selectedIndexId === undefined || parsedCollateralUnits <= 0n) {
         if (!cancelled) {
-          setMaxBorrowableRaw(0n)
-          setMaxBorrowableLoading(false)
+          setBorrowQuote([])
+          setBorrowQuoteLoading(false)
         }
         return
       }
-      if (!cancelled) setMaxBorrowableLoading(true)
+      if (!cancelled) setBorrowQuoteLoading(true)
       try {
-        const quoted = await publicClient.readContract({
+        const quoted: any = await publicClient.readContract({
           address: diamondAddress as `0x${string}`,
           abi: equalIndexFacetV3Abi,
-          functionName: 'maxBorrowable',
-          args: [BigInt(selectedIndexId), lendingAsset, parsedCollateralUnits],
+          functionName: 'quoteBorrowBasket',
+          args: [BigInt(selectedIndexId), parsedCollateralUnits],
         })
         if (!cancelled) {
-          setMaxBorrowableRaw(toBigInt(quoted))
+          const assets = (quoted?.[0] || []) as string[]
+          const principals = (quoted?.[1] || []) as bigint[]
+          setBorrowQuote(
+            assets.map((asset: string, idx: number) => ({
+              asset,
+              principal: toBigInt(principals[idx] ?? 0),
+            })),
+          )
         }
       } catch {
         if (!cancelled) {
-          setMaxBorrowableRaw(0n)
+          setBorrowQuote([])
         }
       } finally {
-        if (!cancelled) setMaxBorrowableLoading(false)
+        if (!cancelled) setBorrowQuoteLoading(false)
       }
     }
 
-    loadMaxBorrowable()
+    loadBorrowQuote()
     return () => {
       cancelled = true
     }
-  }, [diamondAddress, lendingAsset, lendingRefreshKey, parsedCollateralUnits, publicClient, selectedIndexId])
+  }, [diamondAddress, lendingRefreshKey, parsedCollateralUnits, publicClient, selectedIndexId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadBorrowFlatFee = async () => {
+      if (!publicClient || !diamondAddress || selectedIndexId === null || selectedIndexId === undefined || parsedCollateralUnits <= 0n) {
+        if (!cancelled) {
+          setBorrowFlatFeeNative(0n)
+          setBorrowFlatFeeError('')
+          setBorrowFlatFeeLoading(false)
+        }
+        return
+      }
+      if (!cancelled) {
+        setBorrowFlatFeeLoading(true)
+        setBorrowFlatFeeError('')
+      }
+      try {
+        const fee = await publicClient.readContract({
+          address: diamondAddress as `0x${string}`,
+          abi: equalIndexFacetV3Abi,
+          functionName: 'quoteBorrowFee',
+          args: [BigInt(selectedIndexId), parsedCollateralUnits],
+        })
+        if (!cancelled) setBorrowFlatFeeNative(toBigInt(fee))
+      } catch {
+        if (!cancelled) {
+          setBorrowFlatFeeNative(0n)
+          setBorrowFlatFeeError('Collateral units do not match configured fee tiers.')
+        }
+      } finally {
+        if (!cancelled) setBorrowFlatFeeLoading(false)
+      }
+    }
+
+    loadBorrowFlatFee()
+    return () => {
+      cancelled = true
+    }
+  }, [diamondAddress, lendingRefreshKey, parsedCollateralUnits, publicClient, selectedIndexId])
 
   useEffect(() => {
     let cancelled = false
@@ -573,6 +700,91 @@ export default function IndexPage() {
       cancelled = true
     }
   }, [activeChainId, lendingPositionKey, lendingRefreshKey, selectedIndexId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadLoanBasketQuote = async () => {
+      if (
+        !publicClient ||
+        !diamondAddress ||
+        !hasDefinedValue(loanDetails?.loanId) ||
+        toBigInt(loanDetails?.collateralUnits ?? 0) <= 0n
+      ) {
+        if (!cancelled) {
+          setLoanBasketQuote([])
+          setLoanBasketLoading(false)
+        }
+        return
+      }
+      if (!cancelled) setLoanBasketLoading(true)
+      try {
+        const quoted: any = await publicClient.readContract({
+          address: diamondAddress as `0x${string}`,
+          abi: equalIndexFacetV3Abi,
+          functionName: 'quoteBorrowBasket',
+          args: [toBigInt(loanDetails.indexId ?? selectedIndexId ?? 0), toBigInt(loanDetails.collateralUnits)],
+        })
+        if (!cancelled) {
+          const assets = (quoted?.[0] || []) as string[]
+          const principals = (quoted?.[1] || []) as bigint[]
+          setLoanBasketQuote(
+            assets.map((asset: string, idx: number) => ({
+              asset,
+              principal: toBigInt(principals[idx] ?? 0),
+            })),
+          )
+        }
+      } catch {
+        if (!cancelled) setLoanBasketQuote([])
+      } finally {
+        if (!cancelled) setLoanBasketLoading(false)
+      }
+    }
+
+    loadLoanBasketQuote()
+    return () => {
+      cancelled = true
+    }
+  }, [diamondAddress, loanDetails, publicClient, selectedIndexId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadLoanFlatFee = async () => {
+      if (
+        !publicClient ||
+        !diamondAddress ||
+        !hasDefinedValue(loanDetails?.indexId) ||
+        toBigInt(loanDetails?.collateralUnits ?? 0) <= 0n
+      ) {
+        if (!cancelled) {
+          setLoanFlatFeeNative(0n)
+          setLoanFlatFeeLoading(false)
+        }
+        return
+      }
+      if (!cancelled) setLoanFlatFeeLoading(true)
+      try {
+        const fee = await publicClient.readContract({
+          address: diamondAddress as `0x${string}`,
+          abi: equalIndexFacetV3Abi,
+          functionName: 'quoteBorrowFee',
+          args: [toBigInt(loanDetails.indexId), toBigInt(loanDetails.collateralUnits)],
+        })
+        if (!cancelled) setLoanFlatFeeNative(toBigInt(fee))
+      } catch {
+        if (!cancelled) setLoanFlatFeeNative(0n)
+      } finally {
+        if (!cancelled) setLoanFlatFeeLoading(false)
+      }
+    }
+
+    loadLoanFlatFee()
+    return () => {
+      cancelled = true
+    }
+  }, [diamondAddress, loanDetails, publicClient])
 
   const scopedRecentIndexedLoans = useMemo(
     () =>
@@ -793,17 +1005,18 @@ export default function IndexPage() {
         functionName: 'getLoan',
         args: [loanIdRaw],
       })
-      const principal = toBigInt(loan?.principal ?? 0)
-      if (principal === 0n) return null
+      const collateralUnits = toBigInt(loan?.collateralUnits ?? 0)
+      if (collateralUnits === 0n) return null
       return {
         ...loan,
         loanId: loanIdRaw,
-        principal,
-        collateralUnits: toBigInt(loan?.collateralUnits ?? 0),
+        collateralUnits,
+        ltvBps: toBigInt(loan?.ltvBps ?? 0),
+        indexId: toBigInt(loan?.indexId ?? selectedIndexId ?? 0),
         maturity: toBigInt(loan?.maturity ?? 0),
       }
     },
-    [diamondAddress, publicClient],
+    [diamondAddress, publicClient, selectedIndexId],
   )
 
   const handleLoadLoan = async () => {
@@ -879,10 +1092,12 @@ export default function IndexPage() {
     if (lendingConfigError) return lendingConfigError
     if (!lendingConfigured) return 'Lending is not configured for this index.'
     if (!resolvedLendingPositionId) return 'Select a Position NFT.'
-    if (!lendingAsset) return 'Select a borrow asset.'
     if (!collateralUnitsValid) return 'Collateral units must be whole index units.'
-    if (parsedBorrowAmount <= 0n) return 'Borrow amount must be greater than zero.'
-    if (parsedDurationSeconds <= 0n) return 'Borrow duration must be greater than zero days.'
+    if (parsedDurationSeconds <= 0n) return 'Borrow duration must be greater than zero.'
+    if (borrowFlatFeeLoading) return 'Loading borrow fee tier…'
+    if (borrowFlatFeeError) return borrowFlatFeeError
+    if (borrowQuoteLoading) return 'Loading basket quote…'
+    if (!borrowQuoteRows.length) return 'No borrowable assets found for this index.'
     const minDuration = toBigInt(lendingConfig?.minDuration ?? 0)
     const maxDuration = toBigInt(lendingConfig?.maxDuration ?? 0)
     if (minDuration > 0n && parsedDurationSeconds < minDuration) return 'Borrow duration is below configured minimum.'
@@ -891,32 +1106,23 @@ export default function IndexPage() {
     if (indexPoolSnapshot && indexPoolSnapshot.availableRaw < parsedCollateralUnits) {
       return 'Insufficient available index-pool principal for requested collateral units.'
     }
-    if (maxBorrowableRaw > 0n && parsedBorrowAmount > maxBorrowableRaw) {
-      return 'Borrow amount exceeds quoted max borrowable amount.'
-    }
     return ''
   }, [
+    borrowQuoteLoading,
+    borrowFlatFeeError,
+    borrowFlatFeeLoading,
+    borrowQuoteRows.length,
     collateralUnitsValid,
     indexPoolSnapshot,
     indexView,
     isConnected,
-    lendingAsset,
     lendingConfigError,
     lendingConfigLoading,
     lendingConfigured,
-    maxBorrowableRaw,
-    parsedBorrowAmount,
     parsedCollateralUnits,
     parsedDurationSeconds,
     resolvedLendingPositionId,
   ])
-
-  const loanAssetMeta = useMemo(
-    () => assetMeta.get(normalizeAddress(loanDetails?.borrowAsset || '')),
-    [assetMeta, loanDetails?.borrowAsset],
-  )
-  const loanAssetDecimals = loanAssetMeta?.decimals ?? 18
-  const loanAssetTicker = loanAssetMeta?.ticker || 'UNK'
 
   const handleBorrowFromPosition = async () => {
     setIsSubmitting(true)
@@ -926,16 +1132,16 @@ export default function IndexPage() {
       const args = [
         BigInt(resolvedLendingPositionId),
         BigInt(selectedIndexId),
-        lendingAsset,
         parsedCollateralUnits,
-        parsedBorrowAmount,
         parsedDurationSeconds,
       ] as const
+      const value = borrowFlatFeeNative > 0n ? borrowFlatFeeNative : undefined
       await publicClient!.simulateContract({
         address: diamondAddress as `0x${string}`,
         abi: equalIndexFacetV3Abi,
         functionName: 'borrowFromPosition',
         args,
+        value,
         account: address,
       })
       const txHash = await writeContractAsync({
@@ -943,6 +1149,7 @@ export default function IndexPage() {
         abi: equalIndexFacetV3Abi,
         functionName: 'borrowFromPosition',
         args,
+        value,
       })
       addToast({
         title: 'Borrow submitted',
@@ -979,9 +1186,7 @@ export default function IndexPage() {
             loanId: createdLoanId,
             indexId: BigInt(selectedIndexId),
             positionKey: lendingPositionKey,
-            borrowAsset: loaded?.borrowAsset || lendingAsset,
             collateralUnits: loaded?.collateralUnits ?? parsedCollateralUnits,
-            principal: loaded?.principal ?? parsedBorrowAmount,
             maturity:
               loaded?.maturity ??
               BigInt(Math.floor(Date.now() / 1000)) + parsedDurationSeconds,
@@ -993,7 +1198,6 @@ export default function IndexPage() {
       }
       await refreshIndexData()
       setLendingRefreshKey((v) => v + 1)
-      setBorrowAmountInput('')
       setCollateralUnitsInput('')
       addToast({
         title: 'Borrow confirmed',
@@ -1016,14 +1220,25 @@ export default function IndexPage() {
     setIsSubmitting(true)
     try {
       ensureWalletReady()
-      if (!loanDetails?.loanId) throw new Error('Load a valid loan first')
-      if (!resolvedLendingPositionId) throw new Error('Select a Position NFT')
-      const isNative = normalizeAddress(loanDetails.borrowAsset) === ZERO_ADDRESS
-      if (!isNative) {
-        await ensureAllowance(loanDetails.borrowAsset, diamondAddress, loanDetails.principal)
+      if (!hasDefinedValue(loanDetails?.loanId)) throw new Error('Load a valid loan first')
+      if (loanDetails?.positionKey && !resolvedLoanPositionId) {
+        throw new Error('Connected wallet does not own the position backing this loan')
       }
-      const args = [BigInt(resolvedLendingPositionId), BigInt(loanDetails.loanId)] as const
-      const value = isNative ? loanDetails.principal : undefined
+      if (!effectiveLoanActionPositionId) throw new Error('Select a Position NFT')
+      if (!loanBasketRows.length) throw new Error('Loan basket quote unavailable')
+      for (const row of loanBasketRows) {
+        if (normalizeAddress(row.asset) === ZERO_ADDRESS) continue
+        if (row.principal > 0n) {
+          await ensureAllowance(row.asset, diamondAddress, row.principal)
+        }
+      }
+      const nativeRepayValue = sumBigInt(
+        loanBasketRows
+          .filter((row: any) => normalizeAddress(row.asset) === ZERO_ADDRESS)
+          .map((row: any) => row.principal),
+      )
+      const args = [BigInt(effectiveLoanActionPositionId), BigInt(loanDetails.loanId)] as const
+      const value = nativeRepayValue > 0n ? nativeRepayValue : undefined
       await publicClient!.simulateContract({
         address: diamondAddress as `0x${string}`,
         abi: equalIndexFacetV3Abi,
@@ -1071,15 +1286,15 @@ export default function IndexPage() {
     setIsSubmitting(true)
     try {
       ensureWalletReady()
-      if (!loanDetails?.loanId) throw new Error('Load a valid loan first')
-      if (!resolvedLendingPositionId) throw new Error('Select a Position NFT')
-      if (parsedExtendSeconds <= 0n) throw new Error('Extend days must be greater than zero')
-      const isNative = normalizeAddress(loanDetails.borrowAsset) === ZERO_ADDRESS
-      if (!isNative && extendFeePreview > 0n) {
-        await ensureAllowance(loanDetails.borrowAsset, diamondAddress, extendFeePreview)
+      if (!hasDefinedValue(loanDetails?.loanId)) throw new Error('Load a valid loan first')
+      if (loanDetails?.positionKey && !resolvedLoanPositionId) {
+        throw new Error('Connected wallet does not own the position backing this loan')
       }
-      const args = [BigInt(resolvedLendingPositionId), BigInt(loanDetails.loanId), parsedExtendSeconds] as const
-      const value = isNative && extendFeePreview > 0n ? extendFeePreview : undefined
+      if (!effectiveLoanActionPositionId) throw new Error('Select a Position NFT')
+      if (parsedExtendSeconds <= 0n) throw new Error('Extend days must be greater than zero')
+      if (loanFlatFeeLoading) throw new Error('Loading extend fee tier…')
+      const args = [BigInt(effectiveLoanActionPositionId), BigInt(loanDetails.loanId), parsedExtendSeconds] as const
+      const value = loanFlatFeeNative > 0n ? loanFlatFeeNative : undefined
       await publicClient!.simulateContract({
         address: diamondAddress as `0x${string}`,
         abi: equalIndexFacetV3Abi,
@@ -1139,7 +1354,7 @@ export default function IndexPage() {
     setIsSubmitting(true)
     try {
       ensureWalletReady()
-      if (!loanDetails?.loanId) throw new Error('Load a valid loan first')
+      if (!hasDefinedValue(loanDetails?.loanId)) throw new Error('Load a valid loan first')
       const args = [BigInt(loanDetails.loanId)] as const
       await publicClient!.simulateContract({
         address: diamondAddress as `0x${string}`,
@@ -1579,7 +1794,7 @@ export default function IndexPage() {
           </button>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1.2fr]">
+        <div className="grid gap-6 xl:grid-cols-2">
           <div className="space-y-6">
             <section className="rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1855,326 +2070,353 @@ export default function IndexPage() {
             </section>
 
             <section className="rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-neutral3">Index Lending</p>
-                  <h2 className="text-lg font-semibold text-neutral1">Borrow Against Index Pool Collateral</h2>
-                </div>
-                <div className="text-xs text-neutral3">
-                  {lendingConfigLoading ? (
-                    <span>Loading config…</span>
-                  ) : lendingConfigured ? (
-                    <div className="text-right">
-                      <div>LTV {String(lendingConfig?.ltvBps ?? 0)} bps | Origination {String(lendingConfig?.originationFeeBps ?? 0)} bps</div>
-                      <div>
-                        Duration {formatUnits(toBigInt(lendingConfig?.minDuration ?? 0), 0)}s - {formatUnits(toBigInt(lendingConfig?.maxDuration ?? 0), 0)}s
-                      </div>
-                    </div>
-                  ) : (
-                    <span>Not configured</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral2" htmlFor="lending-position-select">
-                    Position NFT
-                  </label>
-                  <select
-                    id="lending-position-select"
-                    value={resolvedLendingPositionId}
-                    onChange={(e: any) => setLendingPositionId(e.target.value)}
-                    className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                  >
-                    {positionOptions.length ? (
-                      positionOptions.map((option: any) => (
-                        <option key={option.tokenId} value={option.tokenId}>
-                          {option.label}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">No positions found</option>
-                    )}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral2" htmlFor="lending-asset-select">
-                    Borrow Asset
-                  </label>
-                  <select
-                    id="lending-asset-select"
-                    value={lendingAsset}
-                    onChange={(e: any) => setLendingAsset(e.target.value)}
-                    className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                  >
-                    {(indexView?.assets || []).map((asset: any) => {
-                      const meta = assetMeta.get(normalizeAddress(asset))
-                      return (
-                        <option key={asset} value={asset}>
-                          {meta?.ticker || asset}
-                        </option>
-                      )
-                    })}
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral2" htmlFor="collateral-units">
-                    Collateral Units
-                  </label>
-                  <input
-                    id="collateral-units"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={collateralUnitsInput}
-                    onChange={(e: any) => setCollateralUnitsInput(e.target.value)}
-                    className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                    placeholder="1"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral2" htmlFor="borrow-amount">
-                    Borrow Amount
-                  </label>
-                  <input
-                    id="borrow-amount"
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={borrowAmountInput}
-                    onChange={(e: any) => setBorrowAmountInput(e.target.value)}
-                    className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                    placeholder="0.0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral2" htmlFor="borrow-duration-days">
-                    Duration (days)
-                  </label>
-                  <input
-                    id="borrow-duration-days"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={durationDaysInput}
-                    onChange={(e: any) => setDurationDaysInput(e.target.value)}
-                    className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                    placeholder="30"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-surface2 bg-surface2/40 p-4 text-xs text-neutral2">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <p>
-                    Max Borrowable:{' '}
-                    <span className="font-semibold text-neutral1">
-                      {maxBorrowableLoading ? 'Loading…' : formatUnits(maxBorrowableRaw, lendingAssetDecimals)}{' '}
-                      {assetMeta.get(normalizeAddress(lendingAsset))?.ticker || 'UNK'}
-                    </span>
-                  </p>
-                  <p>
-                    Borrow Fee:{' '}
-                    <span className="font-semibold text-neutral1">
-                      {formatUnits(borrowFeePreview, lendingAssetDecimals)}{' '}
-                      {assetMeta.get(normalizeAddress(lendingAsset))?.ticker || 'UNK'}
-                    </span>
-                  </p>
-                  <p>
-                    Net Received:{' '}
-                    <span className="font-semibold text-neutral1">
-                      {formatUnits(borrowNetPreview, lendingAssetDecimals)}{' '}
-                      {assetMeta.get(normalizeAddress(lendingAsset))?.ticker || 'UNK'}
-                    </span>
-                  </p>
-                  <p>
-                    Position Available in Index Pool:{' '}
-                    <span className="font-semibold text-neutral1">
-                      {indexPoolSnapshot
-                        ? `${formatUnits(indexPoolSnapshot.availableRaw, 18)} units`
-                        : '—'}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 flex flex-wrap justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={handleBorrowFromPosition}
-                  disabled={isSubmitting || !!lendingDisabledReason}
-                  className="min-h-[44px] rounded-full bg-accent1 px-6 py-2.5 text-sm font-semibold text-ink shadow-card transition hover:-translate-y-1 hover:shadow-xl hover:bg-accent1Hovered disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Borrow from Position
-                </button>
-              </div>
-              {lendingDisabledReason ? (
-                <p className="mt-3 text-center text-xs text-neutral3">{lendingDisabledReason}</p>
-              ) : null}
-
-              <div className="mt-8 rounded-2xl border border-surface2 bg-surface2/40 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-neutral1">Active Indexed Loans</p>
-                  <div className="text-right text-xs text-neutral3">
-                    <p>
-                      {lendingPositionKey
-                        ? `Position key: ${lendingPositionKey.slice(0, 10)}…${lendingPositionKey.slice(-6)}`
-                        : 'Position key unavailable'}
-                    </p>
-                    <p>{indexedLoanStatusText}</p>
-                  </div>
-                </div>
-                {indexedLoansLoading ? (
-                  <p className="mt-3 text-xs text-neutral3">Loading indexed loans…</p>
-                ) : activeIndexedLoans.length ? (
-                  <div className="mt-3 space-y-2">
-                    {activeIndexedLoans.map((loan: any) => {
-                      const meta = assetMeta.get(normalizeAddress(loan.borrowAsset))
-                      const decimals = meta?.decimals ?? 18
-                      const ticker = meta?.ticker || 'UNK'
-                      return (
-                        <button
-                          key={loan.loanId.toString()}
-                          type="button"
-                          onClick={() => handleSelectIndexedLoan(loan.loanId)}
-                          className="w-full rounded-xl border border-surface3 bg-surface2 px-3 py-2 text-left text-xs text-neutral2 transition hover:border-accent1 hover:text-neutral1"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-semibold text-neutral1">Loan #{loan.loanId.toString()}</span>
-                            <span>{new Date(Number(loan.maturity) * 1000).toLocaleString()}</span>
-                          </div>
-                          <div className="mt-1 flex flex-wrap gap-3">
-                            <span>
-                              Principal: {formatUnits(loan.principal, decimals)} {ticker}
-                            </span>
-                            <span>Collateral: {formatUnits(loan.collateralUnits, 18)} units</span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-xs text-neutral3">No active indexed loans for this position/index yet.</p>
-                )}
-              </div>
-
-              <div className="mt-8 rounded-2xl border border-surface2 bg-surface2/40 p-4">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="flex-1 min-w-[180px] space-y-2">
-                    <label className="text-sm font-medium text-neutral2" htmlFor="loan-id-input">
-                      Loan ID
-                    </label>
-                    <input
-                      id="loan-id-input"
-                      type="number"
-                      min="0"
-                      value={loanIdInput}
-                      onChange={(e: any) => setLoanIdInput(e.target.value)}
-                      className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                      placeholder="0"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleLoadLoan}
-                    disabled={loanLoading || !loanIdInput}
-                    className="h-11 rounded-full border border-surface3 px-5 text-xs font-semibold text-neutral1 transition hover:border-accent1 hover:text-accent1 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {loanLoading ? 'Loading…' : 'Load Loan'}
-                  </button>
-                </div>
-
-                {loanDetails ? (
-                  <div className="mt-4 space-y-3 text-xs text-neutral2">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <p>
-                        Principal:{' '}
-                        <span className="font-semibold text-neutral1">
-                          {formatUnits(loanDetails.principal, loanAssetDecimals)} {loanAssetTicker}
-                        </span>
-                      </p>
-                      <p>
-                        Collateral:{' '}
-                        <span className="font-semibold text-neutral1">
-                          {formatUnits(loanDetails.collateralUnits, 18)} units
-                        </span>
-                      </p>
-                      <p>
-                        Maturity:{' '}
-                        <span className="font-semibold text-neutral1">
-                          {new Date(Number(loanDetails.maturity) * 1000).toLocaleString()}
-                        </span>
-                      </p>
-                      <p>
-                        Extend Fee:{' '}
-                        <span className="font-semibold text-neutral1">
-                          {formatUnits(extendFeePreview, loanAssetDecimals)} {loanAssetTicker}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-neutral2" htmlFor="extend-days-input">
-                          Extend Days
-                        </label>
-                        <input
-                          id="extend-days-input"
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={extendDaysInput}
-                          onChange={(e: any) => setExtendDaysInput(e.target.value)}
-                          className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
-                          placeholder="30"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRepayLoan}
-                        disabled={isSubmitting}
-                        className="h-11 rounded-full bg-accent1 px-5 text-xs font-semibold text-ink shadow-card transition hover:bg-accent1Hovered disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Repay
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleExtendLoan}
-                        disabled={isSubmitting || parsedExtendSeconds <= 0n}
-                        className="h-11 rounded-full border border-surface3 px-5 text-xs font-semibold text-neutral1 transition hover:border-accent1 hover:text-accent1 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Extend
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleRecoverLoan}
-                        disabled={isSubmitting}
-                        className="h-11 rounded-full border border-statusCritical/50 px-5 text-xs font-semibold text-statusCritical transition hover:bg-statusCritical2/30 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Recover Expired
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-4 text-xs text-neutral3">Load a loan ID to repay, extend, or recover.</p>
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card">
               <p className="text-xs uppercase tracking-[0.2em] text-neutral3">Index Notes</p>
               <div className="mt-4 space-y-2 text-sm text-neutral2">
                 <p>Each index unit represents the bundle amounts defined in the blueprint above.</p>
                 <p>Mint fees are collected per asset, while burn fees are deducted from redemptions.</p>
                 <p>Flash fee bps are applied to proportional bundle borrows.</p>
-                <p>Index lending borrows against index-pool principal and can be repaid, extended, or recovered after expiry.</p>
+                <p>Index lending borrows the full underlying basket against index-pool principal and can be repaid, extended, or recovered after expiry.</p>
               </div>
             </section>
           </div>
         </div>
+
+        <section className="w-full rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-neutral3">Index Lending</p>
+              <h2 className="text-lg font-semibold text-neutral1">Borrow Against Index Pool Collateral</h2>
+            </div>
+            <div className="text-xs text-neutral3">
+              {lendingConfigLoading ? (
+                <span>Loading config…</span>
+              ) : lendingConfigured ? (
+                <div className="text-right">
+                  <div>LTV {String(lendingConfig?.ltvBps ?? 0)} bps | Tiered Native Fee</div>
+                  <div>
+                    Duration {formatUnits(toBigInt(lendingConfig?.minDuration ?? 0), 0)}s - {formatUnits(toBigInt(lendingConfig?.maxDuration ?? 0), 0)}s
+                  </div>
+                </div>
+              ) : (
+                <span>Not configured</span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-surface2 bg-surface2/30 p-3 text-xs text-neutral3">
+            <div>
+              Lending Index:{' '}
+              <span className="font-semibold text-neutral1">
+                {selectedIndexOption
+                  ? `${selectedIndexOption.label} (#${selectedIndexOption.indexId})`
+                  : `#${String(selectedIndexId ?? '')}`}
+              </span>
+            </div>
+            <div className="mt-1">
+              Borrow mints debt in the full underlying basket for the selected collateral units.
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral2" htmlFor="lending-index-select">
+                Lending Index
+              </label>
+              <select
+                id="lending-index-select"
+                value={selectedIndexId ?? ''}
+                onChange={(e: any) => setSelectedIndexId(Number(e.target.value))}
+                className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
+              >
+                {indexOptions.length ? (
+                  indexOptions.map((option: any) => (
+                    <option key={option.indexId} value={option.indexId}>
+                      {option.label} (#{option.indexId})
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No indexes configured</option>
+                )}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral2" htmlFor="lending-position-select">
+                Position NFT
+              </label>
+              <select
+                id="lending-position-select"
+                value={resolvedLendingPositionId}
+                onChange={(e: any) => setLendingPositionId(e.target.value)}
+                className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
+              >
+                {positionOptions.length ? (
+                  positionOptions.map((option: any) => (
+                    <option key={option.tokenId} value={option.tokenId}>
+                      {option.label}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No positions found</option>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral2" htmlFor="collateral-units">
+                Collateral Units
+              </label>
+              <input
+                id="collateral-units"
+                type="number"
+                min="0"
+                step="1"
+                value={collateralUnitsInput}
+                onChange={(e: any) => setCollateralUnitsInput(e.target.value)}
+                className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
+                placeholder="1"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral2" htmlFor="borrow-duration-days">
+                Duration (30, 36h, 1d12h)
+              </label>
+              <input
+                id="borrow-duration-days"
+                type="text"
+                value={durationDaysInput}
+                onChange={(e: any) => setDurationDaysInput(e.target.value)}
+                className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
+                placeholder="30 or 36h"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-surface2 bg-surface2/40 p-4 text-xs text-neutral2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <p>
+                Basket Principal:{' '}
+                <span className="font-semibold text-neutral1">
+                  {formatUnits(borrowQuoteTotals.principal, 18)} (sum)
+                </span>
+              </p>
+              <p>
+                Borrow Action Fee ({nativeSymbol}):{' '}
+                <span className="font-semibold text-neutral1">
+                  {borrowFlatFeeLoading ? 'Loading…' : formatUnits(borrowFlatFeeNative, 18)}
+                </span>
+              </p>
+              <p>
+                Position Available in Index Pool:{' '}
+                <span className="font-semibold text-neutral1">
+                  {indexPoolSnapshot
+                    ? `${formatUnits(indexPoolSnapshot.availableRaw, 18)} units`
+                    : '—'}
+                </span>
+              </p>
+            </div>
+            <div className="mt-3 space-y-1">
+              <p className="font-semibold text-neutral1">Basket Quote</p>
+              {borrowQuoteLoading ? (
+                <p className="text-neutral3">Loading basket quote…</p>
+              ) : borrowQuoteRows.length ? (
+                borrowQuoteRows.map((row: any) => (
+                  <div key={String(row.asset)} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{row.ticker}</span>
+                    <span>
+                      Principal {formatUnits(row.principal, row.decimals)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-neutral3">Enter collateral units to preview basket debt.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-center gap-4">
+            <button
+              type="button"
+              onClick={handleBorrowFromPosition}
+              disabled={isSubmitting || !!lendingDisabledReason}
+              className="min-h-[44px] rounded-full bg-accent1 px-6 py-2.5 text-sm font-semibold text-ink shadow-card transition hover:-translate-y-1 hover:shadow-xl hover:bg-accent1Hovered disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Borrow from Position
+            </button>
+          </div>
+          {lendingDisabledReason ? (
+            <p className="mt-3 text-center text-xs text-neutral3">{lendingDisabledReason}</p>
+          ) : null}
+
+          <div className="mt-8 rounded-2xl border border-surface2 bg-surface2/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-neutral1">Active Indexed Loans</p>
+              <div className="text-right text-xs text-neutral3">
+                <p>
+                  {lendingPositionKey
+                    ? `Position key: ${lendingPositionKey.slice(0, 10)}…${lendingPositionKey.slice(-6)}`
+                    : 'Position key unavailable'}
+                </p>
+                <p>{indexedLoanStatusText}</p>
+              </div>
+            </div>
+            {indexedLoansLoading ? (
+              <p className="mt-3 text-xs text-neutral3">Loading indexed loans…</p>
+            ) : activeIndexedLoans.length ? (
+              <div className="mt-3 space-y-2">
+                {activeIndexedLoans.map((loan: any) => {
+                  const indexedPrincipal = toBigInt(loan.principal ?? 0)
+                  return (
+                    <button
+                      key={loan.loanId.toString()}
+                      type="button"
+                      onClick={() => handleSelectIndexedLoan(loan.loanId)}
+                      className="w-full rounded-xl border border-surface3 bg-surface2 px-3 py-2 text-left text-xs text-neutral2 transition hover:border-accent1 hover:text-neutral1"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold text-neutral1">Loan #{loan.loanId.toString()}</span>
+                        <span>{new Date(Number(loan.maturity) * 1000).toLocaleString()}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-3">
+                        <span>Collateral: {formatUnits(loan.collateralUnits, 18)} units</span>
+                        {indexedPrincipal > 0n ? (
+                          <span>Indexed principal: {formatUnits(indexedPrincipal, 18)}</span>
+                        ) : null}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-neutral3">No active indexed loans for this position/index yet.</p>
+            )}
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-surface2 bg-surface2/40 p-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[180px] space-y-2">
+                <label className="text-sm font-medium text-neutral2" htmlFor="loan-id-input">
+                  Loan ID
+                </label>
+                <input
+                  id="loan-id-input"
+                  type="number"
+                  min="0"
+                  value={loanIdInput}
+                  onChange={(e: any) => setLoanIdInput(e.target.value)}
+                  className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
+                  placeholder="0"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadLoan}
+                disabled={loanLoading || !loanIdInput}
+                className="h-11 rounded-full border border-surface3 px-5 text-xs font-semibold text-neutral1 transition hover:border-accent1 hover:text-accent1 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loanLoading ? 'Loading…' : 'Load Loan'}
+              </button>
+            </div>
+
+            {loanDetails ? (
+              <div className="mt-4 space-y-3 text-xs text-neutral2">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <p>
+                    Index ID:{' '}
+                    <span className="font-semibold text-neutral1">
+                      {String(loanDetails.indexId)}
+                    </span>
+                  </p>
+                  <p>
+                    Collateral:{' '}
+                    <span className="font-semibold text-neutral1">
+                      {formatUnits(loanDetails.collateralUnits, 18)} units
+                    </span>
+                  </p>
+                  <p>
+                    Maturity:{' '}
+                    <span className="font-semibold text-neutral1">
+                      {new Date(Number(loanDetails.maturity) * 1000).toLocaleString()}
+                    </span>
+                  </p>
+                  <p>
+                    LTV:{' '}
+                    <span className="font-semibold text-neutral1">
+                      {String(loanDetails.ltvBps ?? 0)} bps
+                    </span>
+                  </p>
+                  <p>
+                    Extend Action Fee ({nativeSymbol}):{' '}
+                    <span className="font-semibold text-neutral1">
+                      {loanFlatFeeLoading ? 'Loading…' : formatUnits(loanFlatFeeNative, 18)}
+                    </span>
+                  </p>
+                </div>
+                <div className="rounded-xl border border-surface3 bg-surface2/40 p-3">
+                  <p className="font-semibold text-neutral1">Loan Basket</p>
+                  {loanBasketLoading ? (
+                    <p className="mt-2 text-neutral3">Loading loan basket…</p>
+                  ) : loanBasketRows.length ? (
+                    <div className="mt-2 space-y-1">
+                      {loanBasketRows.map((row: any) => (
+                        <div key={String(row.asset)} className="flex flex-wrap items-center justify-between gap-2">
+                          <span>{row.ticker}</span>
+                          <span>
+                            Principal {formatUnits(row.principal, row.decimals)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-neutral3">No basket data available.</p>
+                  )}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-neutral2" htmlFor="extend-days-input">
+                      Extend Duration (30, 36h, 1d12h)
+                    </label>
+                    <input
+                      id="extend-days-input"
+                      type="text"
+                      value={extendDaysInput}
+                      onChange={(e: any) => setExtendDaysInput(e.target.value)}
+                      className="w-full rounded-2xl border border-surface3 bg-surface2 px-4 py-3 text-base text-neutral1 outline-none transition-colors hover:border-surface3Hovered focus:border-accent1 focus:ring-2 focus:ring-accent1/20"
+                      placeholder="30 or 36h"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRepayLoan}
+                    disabled={isSubmitting}
+                    className="h-11 rounded-full bg-accent1 px-5 text-xs font-semibold text-ink shadow-card transition hover:bg-accent1Hovered disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Repay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExtendLoan}
+                    disabled={isSubmitting || parsedExtendSeconds <= 0n || loanFlatFeeLoading}
+                    className="h-11 rounded-full border border-surface3 px-5 text-xs font-semibold text-neutral1 transition hover:border-accent1 hover:text-accent1 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Extend
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRecoverLoan}
+                    disabled={isSubmitting}
+                    className="h-11 rounded-full border border-statusCritical/50 px-5 text-xs font-semibold text-statusCritical transition hover:bg-statusCritical2/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Recover Expired
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-neutral3">Load a loan ID to repay, extend, or recover.</p>
+            )}
+          </div>
+        </section>
       </div>
 
       <CreateIndexModal

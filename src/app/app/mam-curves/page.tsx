@@ -457,7 +457,7 @@ export default function MamCurvesPage() {
 
   const readyStatus = diamondAddress
     ? "MAM Curve flows ready"
-    : "Set diamondAddress in NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY/TESTNET";
+    : "Set diamondAddress in NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY/ROBINHOOD_TESTNET/TESTNET";
 
   return (
     <AppShell title="MAM Curves">

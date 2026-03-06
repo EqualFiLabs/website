@@ -14,7 +14,11 @@ const loadResolvers = async () => {
   const transformed = source
     .replace("export const resolveFoundryOverride = ", "const resolveFoundryOverride = ")
     .replace("export const resolveFoundryAddressEnv = ", "const resolveFoundryAddressEnv = ")
-    .concat("\nmodule.exports = { resolveFoundryOverride, resolveFoundryAddressEnv };");
+    .replace("export const resolveChainOverride = ", "const resolveChainOverride = ")
+    .replace("export const resolveChainAddressEnv = ", "const resolveChainAddressEnv = ")
+    .concat(
+      "\nmodule.exports = { resolveFoundryOverride, resolveFoundryAddressEnv, resolveChainOverride, resolveChainAddressEnv };",
+    );
 
   const module = { exports: {} as Record<string, unknown> };
   runInNewContext(transformed, {
@@ -33,6 +37,18 @@ const loadResolvers = async () => {
       chainId: number,
       baseEnvKey: string,
       foundryEnvKey: string,
+    ) => string,
+    resolveChainOverride: module.exports.resolveChainOverride as (
+      chainId: number,
+      baseValue: string,
+      foundryValue: string,
+      robinhoodValue: string,
+    ) => string,
+    resolveChainAddressEnv: module.exports.resolveChainAddressEnv as (
+      chainId: number,
+      baseEnvKey: string,
+      foundryEnvKey: string,
+      robinhoodEnvKey: string,
     ) => string,
   };
 };
@@ -85,5 +101,76 @@ test("resolveFoundryAddressEnv applies foundry override and trims whitespace", a
 
     if (prevFoundry === undefined) delete process.env.NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY;
     else process.env.NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY = prevFoundry;
+  }
+});
+
+test("resolveChainOverride supports foundry and robinhood chain-specific overrides", async () => {
+  const { resolveChainOverride } = await loadResolvers();
+
+  assert.equal(
+    resolveChainOverride(31337, "0xtestnet", "0xfoundry", "0xrobinhood"),
+    "0xfoundry",
+  );
+  assert.equal(
+    resolveChainOverride(46630, "0xtestnet", "0xfoundry", "0xrobinhood"),
+    "0xrobinhood",
+  );
+  assert.equal(
+    resolveChainOverride(84532, "0xtestnet", "0xfoundry", "0xrobinhood"),
+    "0xtestnet",
+  );
+  assert.equal(
+    resolveChainOverride(46630, "0xtestnet", "0xfoundry", ""),
+    "0xtestnet",
+  );
+});
+
+test("resolveChainAddressEnv applies robinhood override and trims whitespace", async () => {
+  const { resolveChainAddressEnv } = await loadResolvers();
+  const prevBase = process.env.NEXT_PUBLIC_OPTION_TOKEN;
+  const prevFoundry = process.env.NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY;
+  const prevRobinhood = process.env.NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET;
+
+  process.env.NEXT_PUBLIC_OPTION_TOKEN = " 0xtestnet ";
+  process.env.NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY = " 0xfoundry ";
+  process.env.NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET = " 0xrobinhood ";
+
+  try {
+    assert.equal(
+      resolveChainAddressEnv(
+        31337,
+        "NEXT_PUBLIC_OPTION_TOKEN",
+        "NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY",
+        "NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET",
+      ),
+      "0xfoundry",
+    );
+    assert.equal(
+      resolveChainAddressEnv(
+        46630,
+        "NEXT_PUBLIC_OPTION_TOKEN",
+        "NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY",
+        "NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET",
+      ),
+      "0xrobinhood",
+    );
+    assert.equal(
+      resolveChainAddressEnv(
+        84532,
+        "NEXT_PUBLIC_OPTION_TOKEN",
+        "NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY",
+        "NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET",
+      ),
+      "0xtestnet",
+    );
+  } finally {
+    if (prevBase === undefined) delete process.env.NEXT_PUBLIC_OPTION_TOKEN;
+    else process.env.NEXT_PUBLIC_OPTION_TOKEN = prevBase;
+
+    if (prevFoundry === undefined) delete process.env.NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY;
+    else process.env.NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY = prevFoundry;
+
+    if (prevRobinhood === undefined) delete process.env.NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET;
+    else process.env.NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET = prevRobinhood;
   }
 });

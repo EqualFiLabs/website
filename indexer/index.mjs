@@ -44,8 +44,8 @@ const resolveNetworks = () => {
 }
 
 const AUCTION_EVENTS = [
-  parseAbiItem('event AuctionCreated(uint256 indexed auctionId, bytes32 indexed makerPositionKey, uint256 indexed makerPositionId, uint256 poolIdA, uint256 poolIdB, address tokenA, address tokenB, uint256 reserveA, uint256 reserveB, uint64 startTime, uint64 endTime, uint16 feeBps, uint8 feeAsset)'),
-  parseAbiItem('event CommunityAuctionCreated(uint256 indexed auctionId, bytes32 indexed creatorPositionKey, uint256 indexed creatorPositionId, uint256 poolIdA, uint256 poolIdB, address tokenA, address tokenB, uint256 reserveA, uint256 reserveB, uint64 startTime, uint64 endTime, uint16 feeBps, uint8 feeAsset)'),
+  parseAbiItem('event AuctionCreated(uint256 indexed auctionId, bytes32 indexed makerPositionKey, uint256 indexed makerPositionId, uint256 poolIdA, uint256 poolIdB, address tokenA, address tokenB, uint256 reserveA, uint256 reserveB, uint64 startTime, uint64 endTime, uint16 feeBps, uint8 feeAsset, uint8 invariantMode)'),
+  parseAbiItem('event CommunityAuctionCreated(uint256 indexed auctionId, bytes32 indexed creatorPositionKey, uint256 indexed creatorPositionId, uint256 poolIdA, uint256 poolIdB, address tokenA, address tokenB, uint256 reserveA, uint256 reserveB, uint64 startTime, uint64 endTime, uint16 feeBps, uint8 feeAsset, uint8 invariantMode)'),
   parseAbiItem('event AuctionLiquidityAdded(uint256 indexed auctionId, bytes32 indexed makerPositionKey, uint256 amountA, uint256 amountB, uint256 reserveA, uint256 reserveB)'),
   parseAbiItem('event MakerJoined(uint256 indexed auctionId, bytes32 indexed positionKey, uint256 positionId, uint256 amountA, uint256 amountB, uint256 share)'),
   parseAbiItem('event AuctionFinalized(uint256 indexed auctionId, bytes32 indexed makerPositionKey, uint256 reserveA, uint256 reserveB, uint256 makerFeeA, uint256 makerFeeB)'),

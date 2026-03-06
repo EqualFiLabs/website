@@ -5,7 +5,7 @@ Multi-chain indexer for auction + derivatives (options/futures) events.
 ## Networks
 Configured via `indexer/config.mjs` with placeholders. Select networks using:
 
-- CLI flag: `--networks arbitrum-sepolia,base-sepolia,ethereum-sepolia,anvil`
+- CLI flag: `--networks arbitrum-sepolia,base-sepolia,ethereum-sepolia,robinhood-testnet,anvil`
 - Or env: `INDEXER_NETWORKS=anvil`
 
 Each network also expects:

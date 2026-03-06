@@ -8,6 +8,7 @@ export function normalizeIndexLoanRow(row = {}) {
     loanId: toBigInt(row.loanId ?? row.loan_id ?? 0),
     indexId: toBigInt(row.indexId ?? row.index_id ?? 0),
     positionKey: String(row.positionKey ?? row.position_key ?? '').toLowerCase(),
+    ltvBps: toBigInt(row.ltvBps ?? row.ltv_bps ?? 0),
     borrowAsset: normalizeAddress(row.borrowAsset ?? row.borrow_asset ?? ZERO_ADDRESS) || ZERO_ADDRESS,
     collateralUnits: toBigInt(row.collateralUnits ?? row.collateral_units ?? 0),
     principal: toBigInt(row.principal ?? 0),

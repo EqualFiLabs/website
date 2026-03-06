@@ -7,17 +7,20 @@
       {
         "id": "EQ-ETH",
         "indexTicker": "EQ-ETH",
-        "indexTokenAddress": "0x03118C7A169e03f4F55e2f6943dA7b9CCDb62B20"
+        "indexTokenAddress": "0x03118C7A169e03f4F55e2f6943dA7b9CCDb62B20",
+        "indexId": 0
       },
       {
         "id": "EQ-BTC",
         "indexTicker": "EQ-BTC",
-        "indexTokenAddress": "0x35a01B655E65d10b48A847984973B33e529C2Bae"
+        "indexTokenAddress": "0x35a01B655E65d10b48A847984973B33e529C2Bae",
+        "indexId": 1
       },
       {
         "id": "EQ-USD",
         "indexTicker": "EQ-USD",
-        "indexTokenAddress": "0x6ed20D170705E53D5D30907dB39BA42c3b9B9a58"
+        "indexTokenAddress": "0x6ed20D170705E53D5D30907dB39BA42c3b9B9a58",
+        "indexId": 2
       }
     ],
     "pools": [
@@ -86,17 +89,20 @@
       {
         "id": "EQ-ETH",
         "indexTicker": "EQ-ETH",
-        "indexTokenAddress": "0xE30846d9bB287d8F2EA830505D6edDf0Ff76d4dd"
+        "indexTokenAddress": "0xE30846d9bB287d8F2EA830505D6edDf0Ff76d4dd",
+        "indexId": 0
       },
       {
         "id": "EQ-BTC",
         "indexTicker": "EQ-BTC",
-        "indexTokenAddress": "0x40022C72473c2e184564141dF7d872944Ca18DF0"
+        "indexTokenAddress": "0x40022C72473c2e184564141dF7d872944Ca18DF0",
+        "indexId": 1
       },
       {
         "id": "EQ-USD",
         "indexTicker": "EQ-USD",
-        "indexTokenAddress": "0x60D0b963e4ec52E6e46C88b03BcA63Bab19f52A4"
+        "indexTokenAddress": "0x60D0b963e4ec52E6e46C88b03BcA63Bab19f52A4",
+        "indexId": 2
       }
     ],
     "pools": [
@@ -153,6 +159,223 @@
         "decimals": 18,
         "tokenAddress": "0x0000000000000000000000000000000000000000",
         "lendingPoolAddress": "0x027c9ba58be0af69c990da55630d9042d067652b"
+      }
+    ],
+    "ilmIsolatedMarkets": []
+  },
+  "robinhoodTestnet": {
+    "diamondAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA",
+    "positionNFTAddress": "0x009640F8Aa72fF6182fC899Ae4855A57fbAe43B9",
+    "faucetAddress": "0xb9013F9E6c8E41271583840e9D7EF36F95d0da9E",
+    "indexTokens": [
+      {
+        "id": "EQ-ETH",
+        "indexTicker": "EQ-ETH",
+        "indexTokenAddress": "0x42b16f9D220952c65507cCF118acd33332B19331",
+        "indexId": 0
+      },
+      {
+        "id": "EQ-BTC",
+        "indexTicker": "EQ-BTC",
+        "indexTokenAddress": "0x40b1fF731c629996dB93fF199171e313536a74d3",
+        "indexId": 1
+      },
+      {
+        "id": "EQ-USD",
+        "indexTicker": "EQ-USD",
+        "indexTokenAddress": "0x8834323E5c730cf5bfF1ba845e4652CC4a712354",
+        "indexId": 2
+      },
+      {
+        "id": "EQRH5",
+        "indexTicker": "EQRH5",
+        "indexTokenAddress": "0x4EAEe5dB3662717d7cBed5Fdd8847200af9EF246",
+        "indexId": 3
+      },
+      {
+        "id": "EQRHAMZN",
+        "indexTicker": "EQRHAMZN",
+        "indexTokenAddress": "0x2c69314B0b12E1F7A49CD08963aB113f55866726",
+        "indexId": 4
+      },
+      {
+        "id": "EQRHAMD",
+        "indexTicker": "EQRHAMD",
+        "indexTokenAddress": "0xB173d80f09Fca46aBc9B16d8d89f556BFaF333ca",
+        "indexId": 5
+      },
+      {
+        "id": "EQRHNFLX",
+        "indexTicker": "EQRHNFLX",
+        "indexTokenAddress": "0xDC267b649804f7f6897dCB63ADF12c236b494a55",
+        "indexId": 6
+      },
+      {
+        "id": "EQRHPLTR",
+        "indexTicker": "EQRHPLTR",
+        "indexTokenAddress": "0x81d620EbbCEa217A583Af3E919eb121F88286a2c",
+        "indexId": 7
+      },
+      {
+        "id": "EQRHTSLA",
+        "indexTicker": "EQRHTSLA",
+        "indexTokenAddress": "0x30a818FC7b64D7D24c674DCCF37Be0363aF7746C",
+        "indexId": 8
+      }
+    ],
+    "pools": [
+      {
+        "id": "rETH",
+        "pid": 1,
+        "tokenName": "Rocket Pool ETH",
+        "ticker": "rETH",
+        "decimals": 18,
+        "tokenAddress": "0x5C3d413B078BdA79DB22a6b8C425e91f758F7e84",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "stETH",
+        "pid": 2,
+        "tokenName": "Lido Staked ETH",
+        "ticker": "stETH",
+        "decimals": 18,
+        "tokenAddress": "0x4B26BCBb18F844639f858f1073Ae38306D8bB29E",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "WBTC",
+        "pid": 3,
+        "tokenName": "Wrapped Bitcoin",
+        "ticker": "WBTC",
+        "decimals": 8,
+        "tokenAddress": "0x0F8Df3600B19319e726F4cbF926ee2f23f0f40d1",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "WETH",
+        "pid": 4,
+        "tokenName": "Wrapped Ethereum",
+        "ticker": "WETH",
+        "decimals": 18,
+        "tokenAddress": "0x04A9d3AE11711c310a63F2aE5Aa427E22388c180",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "USDC",
+        "pid": 5,
+        "tokenName": "USD Coin",
+        "ticker": "USDC",
+        "decimals": 6,
+        "tokenAddress": "0x9d67E306479B14239774146fe8e16EBD0357440A",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "ETH",
+        "pid": 6,
+        "tokenName": "Native ETH",
+        "ticker": "ETH",
+        "decimals": 18,
+        "tokenAddress": "0x0000000000000000000000000000000000000000",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "AMZN",
+        "pid": 10,
+        "tokenName": "Amazon",
+        "ticker": "AMZN",
+        "decimals": 18,
+        "tokenAddress": "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "AMD",
+        "pid": 11,
+        "tokenName": "AMD",
+        "ticker": "AMD",
+        "decimals": 18,
+        "tokenAddress": "0x71178BAc73cBeb415514eB542a8995b82669778d",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "NFLX",
+        "pid": 12,
+        "tokenName": "Netflix",
+        "ticker": "NFLX",
+        "decimals": 18,
+        "tokenAddress": "0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "PLTR",
+        "pid": 13,
+        "tokenName": "Palantir Technologies",
+        "ticker": "PLTR",
+        "decimals": 18,
+        "tokenAddress": "0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "TSLA",
+        "pid": 14,
+        "tokenName": "Tesla",
+        "ticker": "TSLA",
+        "decimals": 18,
+        "tokenAddress": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "EQRH5",
+        "pid": 15,
+        "tokenName": "EqualIndex RH 5 Stocks 0.05",
+        "ticker": "EQRH5",
+        "decimals": 18,
+        "tokenAddress": "0x4EAEe5dB3662717d7cBed5Fdd8847200af9EF246",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "EQRHAMZN",
+        "pid": 16,
+        "tokenName": "EqualIndex RH AMZN 0.05",
+        "ticker": "EQRHAMZN",
+        "decimals": 18,
+        "tokenAddress": "0x2c69314B0b12E1F7A49CD08963aB113f55866726",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "EQRHAMD",
+        "pid": 17,
+        "tokenName": "EqualIndex RH AMD 0.05",
+        "ticker": "EQRHAMD",
+        "decimals": 18,
+        "tokenAddress": "0xB173d80f09Fca46aBc9B16d8d89f556BFaF333ca",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "EQRHNFLX",
+        "pid": 18,
+        "tokenName": "EqualIndex RH NFLX 0.05",
+        "ticker": "EQRHNFLX",
+        "decimals": 18,
+        "tokenAddress": "0xDC267b649804f7f6897dCB63ADF12c236b494a55",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "EQRHPLTR",
+        "pid": 19,
+        "tokenName": "EqualIndex RH PLTR 0.05",
+        "ticker": "EQRHPLTR",
+        "decimals": 18,
+        "tokenAddress": "0x81d620EbbCEa217A583Af3E919eb121F88286a2c",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
+      },
+      {
+        "id": "EQRHTSLA",
+        "pid": 20,
+        "tokenName": "EqualIndex RH TSLA 0.05",
+        "ticker": "EQRHTSLA",
+        "decimals": 18,
+        "tokenAddress": "0x30a818FC7b64D7D24c674DCCF37Be0363aF7746C",
+        "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
       }
     ],
     "ilmIsolatedMarkets": []

@@ -134,6 +134,7 @@ function useCreateAuction() {
         endTime: BigInt(endTime),
         feeBps: Number(state.feeBps),
         feeAsset: 0,
+        invariantMode: 0,
       }
 
       const isSolo = state.auctionType === 'solo'

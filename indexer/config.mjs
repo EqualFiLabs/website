@@ -27,6 +27,15 @@ export const networks = [
     confirmations: 3,
   },
   {
+    key: 'robinhood-testnet',
+    chainId: 46630,
+    rpcEnv: 'RPC_URL_ROBINHOOD_TESTNET',
+    diamondEnv: 'DIAMOND_ADDRESS_ROBINHOOD_TESTNET',
+    startBlockEnv: 'START_BLOCK_ROBINHOOD_TESTNET',
+    defaultStartBlock: 0,
+    confirmations: 3,
+  },
+  {
     key: 'anvil',
     chainId: 31337,
     rpcEnv: 'RPC_URL_ANVIL',

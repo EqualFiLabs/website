@@ -19,13 +19,13 @@ import { erc6900AccountAbi } from "@/lib/abis/erc6900Account";
 import { sessionKeyValidationModuleAbi } from "@/lib/abis/sessionKeyValidationModule";
 import { positionAgentAmmSkillModuleAbi } from "@/lib/abis/positionAgentAmmSkillModule";
 import { erc8004IdentityRegistryAbi as erc8004RegistryAbi } from "@/lib/abis/erc8004Registry";
-import { resolveFoundryAddressEnv } from "@/lib/foundryOverrides";
+import { resolveChainAddressEnv } from "@/lib/foundryOverrides";
 
 // Skill catalog removed
 
 const EXECUTE_SELECTORS = ["0xb61d27f6", "0x34fcd5be", "0x51945447"];
 const AMM_ACTION_SELECTORS = [
-  "0xed5b5ef5", // createAuction((uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint16,uint8))
+  "0x069a2c21", // createAuction((uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint16,uint8,uint8))
   "0x96b5a755", // cancelAuction(uint256)
   "0xe8083863", // finalizeAuction(uint256)
   "0x422f1043", // addLiquidity(uint256,uint256,uint256)
@@ -78,25 +78,36 @@ export default function AgentsPage() {
 
   const sessionKeyModule = useMemo(
     () =>
-      resolveFoundryAddressEnv(
+      resolveChainAddressEnv(
         activeChainId,
         "NEXT_PUBLIC_SESSION_KEY_MODULE",
         "NEXT_PUBLIC_SESSION_KEY_MODULE_FOUNDRY",
+        "NEXT_PUBLIC_SESSION_KEY_MODULE_ROBINHOOD_TESTNET",
       ) as `0x${string}` | "",
     [activeChainId],
   );
   const ammSkillModule = useMemo(
     () =>
-      resolveFoundryAddressEnv(
+      resolveChainAddressEnv(
         activeChainId,
         "NEXT_PUBLIC_AMM_SKILL_MODULE",
         "NEXT_PUBLIC_AMM_SKILL_MODULE_FOUNDRY",
+        "NEXT_PUBLIC_AMM_SKILL_MODULE_ROBINHOOD_TESTNET",
       ) as `0x${string}` | "",
     [activeChainId],
   );
   const oldAmmSkillModule = (process.env.NEXT_PUBLIC_OLD_AMM_SKILL_MODULE || "").trim() as `0x${string}` | "";
-  const identityRegistry = (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || "").trim() as `0x${string}` | "";
-  const chainId = (process.env.NEXT_PUBLIC_CHAIN_ID || "").toString();
+  const identityRegistry = useMemo(
+    () =>
+      resolveChainAddressEnv(
+        activeChainId,
+        "NEXT_PUBLIC_IDENTITY_REGISTRY",
+        "NEXT_PUBLIC_IDENTITY_REGISTRY_FOUNDRY",
+        "NEXT_PUBLIC_IDENTITY_REGISTRY_ROBINHOOD_TESTNET",
+      ) as `0x${string}` | "",
+    [activeChainId],
+  );
+  const chainId = String(activeChainId ?? process.env.NEXT_PUBLIC_CHAIN_ID ?? "");
 
   const [selectedNft, setSelectedNft] = useState<any>("");
   const [validFrom, setValidFrom] = useState<any>("");

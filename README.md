@@ -91,12 +91,14 @@ NEXT_PUBLIC_WC_PROJECT_ID=your_project_id_here
 # UI Pools Config Overrides (optional)
 # These should be JSON objects matching src/lib/pools.json shape.
 # Foundry chainId 31337 uses NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY.
-# Other chains use NEXT_PUBLIC_POOLS_CONFIG_TESTNET.
+# Robinhood chainId 46630 uses NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET.
+# Other non-foundry, non-robinhood chains use NEXT_PUBLIC_POOLS_CONFIG_TESTNET.
 NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY={"diamondAddress":"0x...","positionNFTAddress":"0x...","faucetAddress":"0x...","pools":[...],"indexTokens":[...],"ilmIsolatedMarkets":[]}
+NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET={"diamondAddress":"0x...","positionNFTAddress":"0x...","faucetAddress":"0x...","pools":[...],"indexTokens":[...],"ilmIsolatedMarkets":[]}
 NEXT_PUBLIC_POOLS_CONFIG_TESTNET={"diamondAddress":"0x...","positionNFTAddress":"0x...","faucetAddress":"0x...","pools":[...],"indexTokens":[...],"ilmIsolatedMarkets":[]}
 
 # Indexer Configuration (optional - for running the indexer)
-# Select networks: arbitrum-sepolia,base-sepolia,ethereum-sepolia,anvil
+# Select networks: arbitrum-sepolia,base-sepolia,ethereum-sepolia,robinhood-testnet,anvil
 INDEXER_NETWORKS=anvil
 
 # Anvil (Local Foundry)
@@ -118,6 +120,11 @@ START_BLOCK_BASE_SEPOLIA=0
 RPC_URL_ETHEREUM_SEPOLIA=https://rpc.sepolia.org
 DIAMOND_ADDRESS_ETHEREUM_SEPOLIA=0x027c9ba58be0af69c990da55630d9042d067652b
 START_BLOCK_ETHEREUM_SEPOLIA=0
+
+# Robinhood Testnet
+RPC_URL_ROBINHOOD_TESTNET=https://rpc.testnet.chain.robinhood.com
+DIAMOND_ADDRESS_ROBINHOOD_TESTNET=0xf85E0456C59472937484a3C2E6F9180853676efA
+START_BLOCK_ROBINHOOD_TESTNET=0
 ```
 
 **Note:** Contract addresses are configured in `src/lib/pools.json` and support multi-chain deployments.
@@ -127,12 +134,14 @@ START_BLOCK_ETHEREUM_SEPOLIA=0
 The application uses `src/lib/pools.json` for multi-chain contract addresses. This file is already configured with:
 
 - **Foundry (31337)**: Local development addresses
+- **Robinhood Testnet (46630)**: Robinhood-specific deployment addresses
 - **Testnets (421614, 84532, 11155111)**: Shared addresses for Arbitrum Sepolia, Base Sepolia, and Ethereum Sepolia
 
 You can optionally override these in `.env.local` with:
 
 - `NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY` (applies only to chain `31337`)
-- `NEXT_PUBLIC_POOLS_CONFIG_TESTNET` (applies to non-`31337` chains)
+- `NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET` (applies only to chain `46630`)
+- `NEXT_PUBLIC_POOLS_CONFIG_TESTNET` (applies to non-`31337` and non-`46630` chains)
 
 After deploying to new networks, update the appropriate section in `pools.json`:
 
@@ -324,7 +333,7 @@ node indexer/index.mjs
 
 # Index specific networks
 node indexer/index.mjs --networks anvil
-node indexer/index.mjs --networks arbitrum-sepolia,base-sepolia,ethereum-sepolia
+node indexer/index.mjs --networks arbitrum-sepolia,base-sepolia,ethereum-sepolia,robinhood-testnet
 
 # Or use environment variable
 INDEXER_NETWORKS=anvil node indexer/index.mjs
@@ -402,6 +411,7 @@ NEXT_PUBLIC_DEBUG=true pnpm dev
 The application supports multiple networks:
 
 - **Foundry Local** (chainId: 31337)
+- **Robinhood Testnet** (chainId: 46630)
 - **Arbitrum Sepolia** (chainId: 421614)
 - **Base Sepolia** (chainId: 84532)
 - **Ethereum Sepolia** (chainId: 11155111)
@@ -413,7 +423,7 @@ Network switching is handled automatically by the UI based on the connected wall
 1. Add network configuration to `indexer/config.mjs`
 2. Add corresponding env vars for RPC URL, Diamond address, and start block
 3. Deploy contracts to the new network
-4. Update `src/lib/pools.json` with new network section (or add to "testnets" if addresses match)
+4. Update `src/lib/pools.json` with a new network section and chain-specific override env if needed
 
 ## API Reference
 

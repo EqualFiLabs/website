@@ -1,6 +1,8 @@
 import rawPoolsConfig from "./pools.json";
 
 const EMPTY_CONFIG = { pools: [], indexTokens: [], ilmIsolatedMarkets: [] };
+const FOUNDRY_CHAIN_ID = 31337;
+const ROBINHOOD_TESTNET_CHAIN_ID = 46630;
 
 const parseEnvConfig = (rawValue, envName) => {
   if (!rawValue) return null;
@@ -35,7 +37,7 @@ export const resolvePoolsConfig = (chainId) => {
   const normalizedChainId = Number(chainId);
 
   // Foundry uses deployment-local addresses
-  if (normalizedChainId === 31337) {
+  if (normalizedChainId === FOUNDRY_CHAIN_ID) {
     const baseConfig = rawPoolsConfig.foundry || rawPoolsConfig["31337"] || EMPTY_CONFIG;
     const envOverride = parseEnvConfig(
       process.env.NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY,
@@ -44,7 +46,17 @@ export const resolvePoolsConfig = (chainId) => {
     return mergePoolsConfig(baseConfig, envOverride);
   }
 
-  // All non-foundry chains use shared testnet addresses by default.
+  // Robinhood testnet uses a dedicated deployment config.
+  if (normalizedChainId === ROBINHOOD_TESTNET_CHAIN_ID) {
+    const baseConfig = rawPoolsConfig.robinhoodTestnet || rawPoolsConfig["46630"] || EMPTY_CONFIG;
+    const envOverride = parseEnvConfig(
+      process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET,
+      "NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET",
+    );
+    return mergePoolsConfig(baseConfig, envOverride);
+  }
+
+  // Remaining chains use shared testnet addresses by default.
   const baseConfig = rawPoolsConfig.testnets || EMPTY_CONFIG;
   const envOverride = parseEnvConfig(
     process.env.NEXT_PUBLIC_POOLS_CONFIG_TESTNET,

@@ -37,7 +37,7 @@ import {
   parseExpirySeconds,
   parseTokenAmount,
 } from "@/lib/derivatives/ui";
-import { resolveFoundryAddressEnv } from "@/lib/foundryOverrides";
+import { resolveChainAddressEnv } from "@/lib/foundryOverrides";
 
 type Scope = "active" | "all";
 
@@ -169,18 +169,20 @@ export default function DerivativesPage() {
   const { buildTxUrl } = useExplorerUrl();
 
   const optionTokenAddress = useMemo(() => {
-    const value = resolveFoundryAddressEnv(
+    const value = resolveChainAddressEnv(
       chainId,
       "NEXT_PUBLIC_OPTION_TOKEN",
       "NEXT_PUBLIC_OPTION_TOKEN_FOUNDRY",
+      "NEXT_PUBLIC_OPTION_TOKEN_ROBINHOOD_TESTNET",
     );
     return value ? (value as `0x${string}`) : undefined;
   }, [chainId]);
   const futuresTokenAddress = useMemo(() => {
-    const value = resolveFoundryAddressEnv(
+    const value = resolveChainAddressEnv(
       chainId,
       "NEXT_PUBLIC_FUTURES_TOKEN",
       "NEXT_PUBLIC_FUTURES_TOKEN_FOUNDRY",
+      "NEXT_PUBLIC_FUTURES_TOKEN_ROBINHOOD_TESTNET",
     );
     return value ? (value as `0x${string}`) : undefined;
   }, [chainId]);
@@ -725,7 +727,7 @@ export default function DerivativesPage() {
 
   const readyStatus = diamondAddress
     ? "Wallet write flows ready"
-    : "Set diamondAddress in NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY/TESTNET";
+    : "Set diamondAddress in NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY/ROBINHOOD_TESTNET/TESTNET";
 
   return (
     <AppShell title="Derivatives">
