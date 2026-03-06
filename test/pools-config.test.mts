@@ -45,11 +45,11 @@ test("foundry config is separated from shared testnet config", async () => {
 
   assert.ok(foundry);
   assert.ok(testnets);
-  assert.equal(foundry.diamondAddress.toLowerCase(), "0xbe5a795ae0754d8d36f6edfd546e55f5e60d6455");
-  assert.equal(foundry.positionNFTAddress.toLowerCase(), "0x6ee471e753ba98246152528bb76302401848f9cf");
-  assert.equal(foundry.faucetAddress.toLowerCase(), "0x23f458e00f9b84283724cd5a68bfee47ff060a06");
-  assert.equal(foundry.pools[0].tokenAddress.toLowerCase(), "0xd651bdab64a34fc8f8c0d4044cbe742ca8d45314");
-  assert.equal(foundry.indexTokens[0].indexTokenAddress.toLowerCase(), "0x91ec682537438775ecc53cdf46b7184f74d99473");
+  assert.equal(foundry.diamondAddress.toLowerCase(), "0x6d4d3804be8d213c541f5a0cb64e18ce4bfb7433");
+  assert.equal(foundry.positionNFTAddress.toLowerCase(), "0xa06da3a0d7805762ce2cdbf706be4ec7c769fe67");
+  assert.equal(foundry.faucetAddress.toLowerCase(), "0x5c3d413b078bda79db22a6b8c425e91f758f7e84");
+  assert.equal(foundry.pools[0].tokenAddress.toLowerCase(), "0x392133ff6fc1af8f95d1471828b52ee7056adb76");
+  assert.equal(foundry.indexTokens[0].indexTokenAddress.toLowerCase(), "0x03118c7a169e03f4f55e2f6943da7b9ccdb62b20");
   assert.notEqual(foundry.diamondAddress.toLowerCase(), testnets.diamondAddress.toLowerCase());
 });
 
