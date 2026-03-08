@@ -6,7 +6,7 @@ import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { arbitrumSepolia, baseSepolia, sepolia, foundry } from "wagmi/chains";
-import { http } from "wagmi";
+import { http, type Transport } from "wagmi";
 import type { Chain } from "viem";
 import ToastProvider from "@/components/common/ToastProvider";
 
@@ -33,21 +33,24 @@ const robinhoodTestnet: Chain = {
   testnet: true,
 };
 
-const wagmiChains = isDev
-  ? [arbitrumSepolia, baseSepolia, sepolia, robinhoodTestnet, foundry]
-  : [arbitrumSepolia, baseSepolia, sepolia, robinhoodTestnet];
+const baseChains: [Chain, ...Chain[]] = [arbitrumSepolia, baseSepolia, sepolia, robinhoodTestnet];
+const wagmiChains: [Chain, ...Chain[]] = isDev ? [...baseChains, foundry] : baseChains;
+const wagmiTransports: Record<number, Transport> = {
+  [arbitrumSepolia.id]: http(),
+  [baseSepolia.id]: http(),
+  [sepolia.id]: http(),
+  [robinhoodTestnet.id]: http(robinhoodRpcUrl),
+};
+
+if (isDev) {
+  wagmiTransports[foundry.id] = http(foundryRpcUrl);
+}
 
 const config = getDefaultConfig({
   appName: "EqualFi",
   projectId,
   chains: wagmiChains,
-  transports: {
-    [arbitrumSepolia.id]: http(),
-    [baseSepolia.id]: http(),
-    [sepolia.id]: http(),
-    [robinhoodTestnet.id]: http(robinhoodRpcUrl),
-    ...(isDev ? { [foundry.id]: http(foundryRpcUrl) } : {}),
-  },
+  transports: wagmiTransports,
   ssr: true,
 });
 
