@@ -13,6 +13,8 @@ import ToastProvider from "@/components/common/ToastProvider";
 const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "";
 const robinhoodRpcUrl =
   process.env.NEXT_PUBLIC_RPC_URL_ROBINHOOD_TESTNET || "https://rpc.testnet.chain.robinhood.com";
+const isDev = process.env.NODE_ENV === "development";
+const foundryRpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
 
 const robinhoodTestnet: Chain = {
   id: 46630,
@@ -31,16 +33,20 @@ const robinhoodTestnet: Chain = {
   testnet: true,
 };
 
+const wagmiChains = isDev
+  ? [arbitrumSepolia, baseSepolia, sepolia, robinhoodTestnet, foundry]
+  : [arbitrumSepolia, baseSepolia, sepolia, robinhoodTestnet];
+
 const config = getDefaultConfig({
   appName: "EqualFi",
   projectId,
-  chains: [arbitrumSepolia, baseSepolia, sepolia, robinhoodTestnet, foundry],
+  chains: wagmiChains,
   transports: {
-    [foundry.id]: http(process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545"),
     [arbitrumSepolia.id]: http(),
     [baseSepolia.id]: http(),
     [sepolia.id]: http(),
     [robinhoodTestnet.id]: http(robinhoodRpcUrl),
+    ...(isDev ? { [foundry.id]: http(foundryRpcUrl) } : {}),
   },
   ssr: true,
 });
