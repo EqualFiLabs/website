@@ -75,6 +75,10 @@ export default function AgentsPage() {
   const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
   const { diamondAddress, positionNFTAddress } = useProtocolAddresses();
+  const diamondAddressHex = useMemo(
+    () => (diamondAddress && isAddress(diamondAddress) ? diamondAddress : undefined),
+    [diamondAddress],
+  );
 
   const sessionKeyModule = useMemo(
     () =>
@@ -186,7 +190,7 @@ export default function AgentsPage() {
   useEffect(() => {
     let cancelled = false;
     const loadTba = async () => {
-      if (!publicClient || !selectedNft || !diamondAddress) {
+      if (!publicClient || !selectedNft || !diamondAddressHex) {
         setTbaAddress("");
         setTbaDeployed(false);
         setAgentId(null);
@@ -196,19 +200,19 @@ export default function AgentsPage() {
         const tokenId = BigInt(selectedNft);
         const [addr, deployed, registeredAgentId] = await Promise.all([
           publicClient.readContract({
-            address: diamondAddress,
+            address: diamondAddressHex,
             abi: positionAgentViewFacetAbi,
             functionName: "getTBAAddress",
             args: [tokenId],
           }) as Promise<`0x${string}`>,
           publicClient.readContract({
-            address: diamondAddress,
+            address: diamondAddressHex,
             abi: positionAgentViewFacetAbi,
             functionName: "isTBADeployed",
             args: [tokenId],
           }) as Promise<boolean>,
           publicClient.readContract({
-            address: diamondAddress,
+            address: diamondAddressHex,
             abi: positionAgentViewFacetAbi,
             functionName: "getAgentId",
             args: [tokenId],
@@ -233,7 +237,7 @@ export default function AgentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [publicClient, selectedNft, diamondAddress]);
+  }, [publicClient, selectedNft, diamondAddressHex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -420,7 +424,7 @@ export default function AgentsPage() {
   };
 
   const handleDeployTba = async () => {
-    if (!diamondAddress) {
+    if (!diamondAddressHex) {
       addToast({ title: "Diamond address missing", type: "error" });
       return;
     }
@@ -437,7 +441,7 @@ export default function AgentsPage() {
 
       // Step 1: Deploy TBA
       const deployTxHash = await writeContractAsync({
-        address: diamondAddress,
+        address: diamondAddressHex,
         abi: positionAgentTBAFacetAbi,
         functionName: "deployTBA",
         args: [BigInt(selectedNft)],
@@ -451,7 +455,7 @@ export default function AgentsPage() {
 
       // Get TBA address
       const addr = await publicClient?.readContract({
-        address: diamondAddress,
+        address: diamondAddressHex,
         abi: positionAgentViewFacetAbi,
         functionName: "getTBAAddress",
         args: [BigInt(selectedNft)],
@@ -550,7 +554,7 @@ export default function AgentsPage() {
       addToast({ title: "Enter a valid session key address", type: "error" });
       return;
     }
-    if (!diamondAddress) {
+    if (!diamondAddressHex) {
       addToast({ title: "Diamond address missing", type: "error" });
       return;
     }
@@ -613,7 +617,7 @@ export default function AgentsPage() {
         address: tbaAddress,
         abi: positionAgentAmmSkillModuleAbi,
         functionName: "setDiamond",
-        args: [diamondAddress],
+        args: [diamondAddressHex],
       });
       addToast({ title: "Configuring AMM skill (2/4)", type: "pending" });
       await publicClient!.waitForTransactionReceipt({ hash: setDiamondTx });
@@ -809,6 +813,10 @@ export default function AgentsPage() {
       addToast({ title: "Select a Position NFT", type: "error" });
       return;
     }
+    if (!diamondAddressHex) {
+      addToast({ title: "Diamond address missing", type: "error" });
+      return;
+    }
     if (!isConnected || !address) {
       addToast({ title: "Connect wallet", type: "error" });
       return;
@@ -880,7 +888,7 @@ export default function AgentsPage() {
       }
 
       const recordTx = await writeContractAsync({
-        address: diamondAddress as `0x${string}`,
+        address: diamondAddressHex,
         abi: positionAgentRegistryFacetAbi,
         functionName: "recordAgentRegistration",
         args: [BigInt(selectedNft), agentId],
@@ -1094,13 +1102,13 @@ export default function AgentsPage() {
                     </button>
                     <button
                       onClick={async () => {
-                        if (!tbaAddress || !diamondAddress || !publicClient) return;
+                        if (!tbaAddress || !diamondAddressHex || !publicClient) return;
                         try {
                           const tx = await writeContractAsync({
                             address: tbaAddress,
                             abi: positionAgentAmmSkillModuleAbi,
                             functionName: "setDiamond",
-                            args: [diamondAddress],
+                            args: [diamondAddressHex],
                           });
                           addToast({ title: "Setting Diamond", type: "pending" });
                           await publicClient.waitForTransactionReceipt({ hash: tx });
@@ -1109,7 +1117,7 @@ export default function AgentsPage() {
                           addToast({ title: "Failed", description: err?.message?.slice(0, 100), type: "error" });
                         }
                       }}
-                      disabled={!tbaAddress || !diamondAddress}
+                      disabled={!tbaAddress || !diamondAddressHex}
                       className="px-3 py-2 text-xs rounded-lg bg-surface2 hover:bg-surface3 text-neutral1 disabled:opacity-50"
                     >
                       2. Set Diamond

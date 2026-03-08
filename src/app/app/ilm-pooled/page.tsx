@@ -58,6 +58,35 @@ const parseUint32Input = (value: string, label: string): number => {
   return Number(parsed);
 };
 
+type IlmPooledStateView = {
+  market: {
+    utilizationBps: number;
+    totalSupplyAssets: bigint;
+    totalDebtAssets: bigint;
+    availableLiquidity: bigint;
+    badDebt: bigint;
+    ltvBps: number;
+    liquidationThresholdBps: number;
+    liquidationBonusBps: number;
+    liquidationProtocolFeeBps: number;
+    reserveFactorBps: number;
+    supplyCap: bigint;
+    borrowCap: bigint;
+    active: boolean;
+    paused: boolean;
+    frozen: boolean;
+  } | null;
+  position: {
+    scaledSupply: bigint;
+    scaledDebt: bigint;
+    useAsCollateral: boolean;
+  } | null;
+  healthFactor: bigint | null;
+  supplyBalance: bigint;
+  debtBalance: bigint;
+  protocolFeeAssets: bigint;
+};
+
 export default function IlmPooledPage() {
   const { addToast } = useToasts();
   const { buildTxUrl } = useExplorerUrl();
@@ -106,6 +135,7 @@ export default function IlmPooledPage() {
     refetch,
     refreshCatalog,
   } = useIlmPooled(selectedMarketId, selectedPositionId);
+  const typedState = state as IlmPooledStateView;
 
   useEffect(() => {
     if (!selectedMarketId && markets.length > 0) {
@@ -166,16 +196,16 @@ export default function IlmPooledPage() {
   const collateralTicker = selectedMarket?.collateralPool?.ticker || `Pool ${selectedMarket?.collateralPoolId ?? "?"}`;
 
   const healthFactorLabel = useMemo(() => {
-    const hf = state.healthFactor;
+    const hf = typedState.healthFactor;
     if (hf === null) return "—";
     if (hf > 10n ** 34n) return "∞";
     return formatDisplay(hf, 18, 4);
-  }, [state.healthFactor]);
+  }, [typedState.healthFactor]);
 
   const utilizationPct = useMemo(() => {
-    const utilizationBps = state.market?.utilizationBps ?? 0;
+    const utilizationBps = typedState.market?.utilizationBps ?? 0;
     return utilizationBps / 100;
-  }, [state.market?.utilizationBps]);
+  }, [typedState.market?.utilizationBps]);
 
   const submit = async (label: string, action: () => Promise<`0x${string}`>) => {
     try {
@@ -394,30 +424,30 @@ export default function IlmPooledPage() {
             <SectionHeader title="MARKET STATE" subtitle={`${loanTicker} pool metrics`} />
             <div className="mt-4 space-y-2 text-sm text-neutral2">
               <div>
-                Total Supply: {formatDisplay(state.market?.totalSupplyAssets, loanDecimals)} {loanTicker}
+                Total Supply: {formatDisplay(typedState.market?.totalSupplyAssets, loanDecimals)} {loanTicker}
               </div>
-              <div>Total Debt: {formatDisplay(state.market?.totalDebtAssets, loanDecimals)} {loanTicker}</div>
+              <div>Total Debt: {formatDisplay(typedState.market?.totalDebtAssets, loanDecimals)} {loanTicker}</div>
               <div>
-                Available Liquidity: {formatDisplay(state.market?.availableLiquidity, loanDecimals)} {loanTicker}
+                Available Liquidity: {formatDisplay(typedState.market?.availableLiquidity, loanDecimals)} {loanTicker}
               </div>
               <div>Utilization: {utilizationPct.toFixed(2)}%</div>
-              <div>Protocol Fee Claim: {formatDisplay(state.protocolFeeAssets, loanDecimals)} {loanTicker}</div>
-              <div>Bad Debt: {formatDisplay(state.market?.badDebt, loanDecimals)} {loanTicker}</div>
+              <div>Protocol Fee Claim: {formatDisplay(typedState.protocolFeeAssets, loanDecimals)} {loanTicker}</div>
+              <div>Bad Debt: {formatDisplay(typedState.market?.badDebt, loanDecimals)} {loanTicker}</div>
             </div>
           </Card>
 
           <Card>
             <SectionHeader title="RISK PARAMS" subtitle="LTV + liquidation controls" />
             <div className="mt-4 space-y-2 text-sm text-neutral2">
-              <div>LTV: {((state.market?.ltvBps ?? 0) / 100).toFixed(2)}%</div>
+              <div>LTV: {((typedState.market?.ltvBps ?? 0) / 100).toFixed(2)}%</div>
               <div>
-                Liquidation Threshold: {((state.market?.liquidationThresholdBps ?? 0) / 100).toFixed(2)}%
+                Liquidation Threshold: {((typedState.market?.liquidationThresholdBps ?? 0) / 100).toFixed(2)}%
               </div>
-              <div>Liquidation Bonus: {((state.market?.liquidationBonusBps ?? 0) / 100).toFixed(2)}%</div>
-              <div>Liquidation Protocol Fee: {((state.market?.liquidationProtocolFeeBps ?? 0) / 100).toFixed(2)}%</div>
-              <div>Reserve Factor: {((state.market?.reserveFactorBps ?? 0) / 100).toFixed(2)}%</div>
-              <div>Supply Cap: {formatDisplay(state.market?.supplyCap, loanDecimals)} {loanTicker}</div>
-              <div>Borrow Cap: {formatDisplay(state.market?.borrowCap, loanDecimals)} {loanTicker}</div>
+              <div>Liquidation Bonus: {((typedState.market?.liquidationBonusBps ?? 0) / 100).toFixed(2)}%</div>
+              <div>Liquidation Protocol Fee: {((typedState.market?.liquidationProtocolFeeBps ?? 0) / 100).toFixed(2)}%</div>
+              <div>Reserve Factor: {((typedState.market?.reserveFactorBps ?? 0) / 100).toFixed(2)}%</div>
+              <div>Supply Cap: {formatDisplay(typedState.market?.supplyCap, loanDecimals)} {loanTicker}</div>
+              <div>Borrow Cap: {formatDisplay(typedState.market?.borrowCap, loanDecimals)} {loanTicker}</div>
               <div>Health Factor: {healthFactorLabel}</div>
             </div>
           </Card>
@@ -425,13 +455,13 @@ export default function IlmPooledPage() {
           <Card>
             <SectionHeader title="POSITION" subtitle="Selected NFT position" />
             <div className="mt-4 space-y-2 text-sm text-neutral2">
-              <div>Supply Balance: {formatDisplay(state.supplyBalance, loanDecimals)} {loanTicker}</div>
-              <div>Debt Balance: {formatDisplay(state.debtBalance, loanDecimals)} {loanTicker}</div>
-              <div>Scaled Supply: {state.position?.scaledSupply?.toString() ?? "—"}</div>
-              <div>Scaled Debt: {state.position?.scaledDebt?.toString() ?? "—"}</div>
-              <div>Use As Collateral: {state.position?.useAsCollateral ? "Yes" : "No"}</div>
+              <div>Supply Balance: {formatDisplay(typedState.supplyBalance, loanDecimals)} {loanTicker}</div>
+              <div>Debt Balance: {formatDisplay(typedState.debtBalance, loanDecimals)} {loanTicker}</div>
+              <div>Scaled Supply: {typedState.position?.scaledSupply?.toString() ?? "—"}</div>
+              <div>Scaled Debt: {typedState.position?.scaledDebt?.toString() ?? "—"}</div>
+              <div>Use As Collateral: {typedState.position?.useAsCollateral ? "Yes" : "No"}</div>
               <div>Module ID: {selectedMarket?.moduleId ?? "—"}</div>
-              <div>Flags: {state.market ? `${state.market.active ? "active" : "inactive"} / ${state.market.paused ? "paused" : "live"} / ${state.market.frozen ? "frozen" : "unfrozen"}` : "—"}</div>
+              <div>Flags: {typedState.market ? `${typedState.market.active ? "active" : "inactive"} / ${typedState.market.paused ? "paused" : "live"} / ${typedState.market.frozen ? "frozen" : "unfrozen"}` : "—"}</div>
             </div>
           </Card>
         </div>

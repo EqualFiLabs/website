@@ -61,6 +61,33 @@ const parseWadInput = (value: string, label: string): bigint => {
   return parseUnits(trimmed, 18);
 };
 
+type IlmStateView = {
+  market: {
+    totalSupplyAssets: bigint;
+    totalSupplyShares: bigint;
+    totalBorrowAssets: bigint;
+    totalBorrowShares: bigint;
+    lastUpdate: bigint;
+    fee: bigint;
+  } | null;
+  params: {
+    loanPoolId: number;
+    collateralPoolId: number;
+    oracle: string;
+    irm: string;
+    lltv: bigint;
+  } | null;
+  position: {
+    supplyShares: bigint;
+    borrowShares: bigint;
+    collateralAssets: bigint;
+  } | null;
+  healthy: boolean | null;
+  liquidationFeeBps: number;
+  protocolFeeAssets: bigint;
+  positionKey: unknown;
+};
+
 export default function IlmIsolatedPage() {
   const { addToast } = useToasts();
   const { buildTxUrl } = useExplorerUrl();
@@ -100,6 +127,7 @@ export default function IlmIsolatedPage() {
     refetch,
     refreshCatalog,
   } = useIlmIsolated(selectedMarketId, selectedPositionId);
+  const typedState = state as IlmStateView;
 
   useEffect(() => {
     if (!selectedMarketId && markets.length > 0) {
@@ -155,11 +183,11 @@ export default function IlmIsolatedPage() {
     selectedMarket?.collateralPool?.ticker || `Pool ${selectedMarket?.collateralPoolId ?? "?"}`;
 
   const utilizationPct = useMemo(() => {
-    const supply = state.market?.totalSupplyAssets ?? 0n;
-    const borrow = state.market?.totalBorrowAssets ?? 0n;
+    const supply = typedState.market?.totalSupplyAssets ?? 0n;
+    const borrow = typedState.market?.totalBorrowAssets ?? 0n;
     if (supply === 0n) return 0;
     return Number((borrow * 10000n) / supply) / 100;
-  }, [state.market]);
+  }, [typedState.market]);
 
   const submit = async (label: string, action: () => Promise<`0x${string}`>) => {
     try {
@@ -352,25 +380,25 @@ export default function IlmIsolatedPage() {
           <Card>
             <SectionHeader title="MARKET STATE" subtitle={`${loanTicker} debt/supply`} />
             <div className="mt-4 space-y-2 text-sm text-neutral2">
-              <div>Total Supply: {formatDisplay(state.market?.totalSupplyAssets, loanDecimals)} {loanTicker}</div>
-              <div>Total Borrow: {formatDisplay(state.market?.totalBorrowAssets, loanDecimals)} {loanTicker}</div>
+              <div>Total Supply: {formatDisplay(typedState.market?.totalSupplyAssets, loanDecimals)} {loanTicker}</div>
+              <div>Total Borrow: {formatDisplay(typedState.market?.totalBorrowAssets, loanDecimals)} {loanTicker}</div>
               <div>Utilization: {utilizationPct.toFixed(2)}%</div>
-              <div>Protocol Fee Claim: {formatDisplay(state.protocolFeeAssets, loanDecimals)} {loanTicker}</div>
-              <div>Liquidation Fee: {state.liquidationFeeBps} bps</div>
+              <div>Protocol Fee Claim: {formatDisplay(typedState.protocolFeeAssets, loanDecimals)} {loanTicker}</div>
+              <div>Liquidation Fee: {typedState.liquidationFeeBps} bps</div>
             </div>
           </Card>
 
           <Card>
             <SectionHeader title="POSITION" subtitle="Selected market position" />
             <div className="mt-4 space-y-2 text-sm text-neutral2">
-              <div>Supply Shares: {state.position ? state.position.supplyShares.toString() : "—"}</div>
-              <div>Borrow Shares: {state.position ? state.position.borrowShares.toString() : "—"}</div>
+              <div>Supply Shares: {typedState.position ? typedState.position.supplyShares.toString() : "—"}</div>
+              <div>Borrow Shares: {typedState.position ? typedState.position.borrowShares.toString() : "—"}</div>
               <div>
-                Collateral: {state.position ? formatDisplay(state.position.collateralAssets, collateralDecimals) : "—"}{" "}
+                Collateral: {typedState.position ? formatDisplay(typedState.position.collateralAssets, collateralDecimals) : "—"}{" "}
                 {collateralTicker}
               </div>
               <div>
-                Health: {state.healthy === null ? "—" : state.healthy ? "Healthy" : "At Risk"}
+                Health: {typedState.healthy === null ? "—" : typedState.healthy ? "Healthy" : "At Risk"}
               </div>
             </div>
           </Card>
@@ -378,11 +406,11 @@ export default function IlmIsolatedPage() {
           <Card>
             <SectionHeader title="MARKET PARAMS" subtitle="Immutable market config" />
             <div className="mt-4 space-y-2 text-xs text-neutral2 break-all">
-              <div>Loan Pool ID: {state.params?.loanPoolId ?? "—"}</div>
-              <div>Collateral Pool ID: {state.params?.collateralPoolId ?? "—"}</div>
-              <div>LLTV: {state.params?.lltv ? formatDisplay(state.params.lltv, 16, 2) + "%" : "—"}</div>
-              <div>Oracle: {state.params?.oracle || "—"}</div>
-              <div>IRM: {state.params?.irm || "—"}</div>
+              <div>Loan Pool ID: {typedState.params?.loanPoolId ?? "—"}</div>
+              <div>Collateral Pool ID: {typedState.params?.collateralPoolId ?? "—"}</div>
+              <div>LLTV: {typedState.params?.lltv ? formatDisplay(typedState.params.lltv, 16, 2) + "%" : "—"}</div>
+              <div>Oracle: {typedState.params?.oracle || "—"}</div>
+              <div>IRM: {typedState.params?.irm || "—"}</div>
             </div>
           </Card>
         </div>

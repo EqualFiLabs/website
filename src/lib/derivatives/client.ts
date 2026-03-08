@@ -1,14 +1,14 @@
 import type { Address } from "viem";
 import { derivativeViewFacetAbi } from "../abis/derivativeViewFacet.js";
-import { futuresFacetAbi } from "../abis/futuresFacet.ts";
-import { optionsFacetAbi } from "../abis/optionsFacet.ts";
+import { futuresFacetAbi } from "../abis/futuresFacet";
+import { optionsFacetAbi } from "../abis/optionsFacet";
 import type {
   CreateFuturesSeriesInput,
   CreateOptionSeriesInput,
   DerivativeFeeSelection,
   FuturesSeries,
   OptionSeries,
-} from "./types.ts";
+} from "./types";
 
 type StructLike = Record<string, unknown> | unknown[];
 

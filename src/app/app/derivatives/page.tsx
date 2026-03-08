@@ -163,6 +163,10 @@ export default function DerivativesPage() {
   const chainId = useActiveChainId();
   const poolsConfig = usePoolsConfig();
   const { diamondAddress } = useProtocolAddresses();
+  const diamondAddressHex = useMemo(
+    () => (diamondAddress && /^0x[a-fA-F0-9]{40}$/.test(diamondAddress) ? (diamondAddress as `0x${string}`) : undefined),
+    [diamondAddress],
+  );
   const { nfts } = usePositionNFTs();
   const { writeContractAsync } = useBufferedWriteContract();
   const { addToast } = useToasts();
@@ -307,7 +311,7 @@ export default function DerivativesPage() {
   }, [loadSeries]);
 
   const ensureReady = useCallback(() => {
-    if (!diamondAddress) {
+    if (!diamondAddressHex) {
       throw new Error("diamondAddress is missing from pools config");
     }
     if (!publicClient || !writeContractAsync) {
@@ -316,8 +320,8 @@ export default function DerivativesPage() {
     if (!isConnected || !address) {
       throw new Error("Connect wallet to continue");
     }
-    return { diamondAddress, account: address };
-  }, [address, diamondAddress, isConnected, publicClient, writeContractAsync]);
+    return { diamondAddress: diamondAddressHex, account: address };
+  }, [address, diamondAddressHex, isConnected, publicClient, writeContractAsync]);
 
   const submitWrite = useCallback(
     async (
@@ -349,34 +353,34 @@ export default function DerivativesPage() {
   );
 
   const refreshOptionSeriesDetails = useCallback(async () => {
-    if (!publicClient || !diamondAddress || !optionAction.seriesId.trim()) {
+    if (!publicClient || !diamondAddressHex || !optionAction.seriesId.trim()) {
       setOptionSeriesDetails(undefined);
       return;
     }
 
     try {
       const seriesId = parseRequiredUint(optionAction.seriesId, "Option series id");
-      const raw = await publicClient.readContract(getOptionSeriesReadRequest(diamondAddress, seriesId));
+      const raw = await publicClient.readContract(getOptionSeriesReadRequest(diamondAddressHex, seriesId));
       setOptionSeriesDetails(mapOptionSeries(raw as never));
     } catch {
       setOptionSeriesDetails(undefined);
     }
-  }, [diamondAddress, optionAction.seriesId, publicClient]);
+  }, [diamondAddressHex, optionAction.seriesId, publicClient]);
 
   const refreshFuturesSeriesDetails = useCallback(async () => {
-    if (!publicClient || !diamondAddress || !futuresAction.seriesId.trim()) {
+    if (!publicClient || !diamondAddressHex || !futuresAction.seriesId.trim()) {
       setFuturesSeriesDetails(undefined);
       return;
     }
 
     try {
       const seriesId = parseRequiredUint(futuresAction.seriesId, "Futures series id");
-      const raw = await publicClient.readContract(getFuturesSeriesReadRequest(diamondAddress, seriesId));
+      const raw = await publicClient.readContract(getFuturesSeriesReadRequest(diamondAddressHex, seriesId));
       setFuturesSeriesDetails(mapFuturesSeries(raw as never));
     } catch {
       setFuturesSeriesDetails(undefined);
     }
-  }, [diamondAddress, futuresAction.seriesId, publicClient]);
+  }, [diamondAddressHex, futuresAction.seriesId, publicClient]);
 
   const refreshTokenBalances = useCallback(async () => {
     if (!publicClient || !address) {
@@ -513,13 +517,13 @@ export default function DerivativesPage() {
 
   const previewOptionPayment = async () => {
     try {
-      if (!publicClient || !diamondAddress) {
+      if (!publicClient || !diamondAddressHex) {
         throw new Error("Wallet client unavailable");
       }
       const seriesId = parseRequiredUint(optionAction.seriesId, "Option series id");
       const amount = parseRequiredUint(optionAction.amount, "Exercise amount");
       const payment = await publicClient.readContract({
-        address: diamondAddress,
+        address: diamondAddressHex,
         abi: optionsFacetAbi,
         functionName: "previewExercisePayment",
         args: [seriesId, amount],
@@ -533,13 +537,13 @@ export default function DerivativesPage() {
 
   const previewFuturesPayment = async () => {
     try {
-      if (!publicClient || !diamondAddress) {
+      if (!publicClient || !diamondAddressHex) {
         throw new Error("Wallet client unavailable");
       }
       const seriesId = parseRequiredUint(futuresAction.seriesId, "Futures series id");
       const amount = parseRequiredUint(futuresAction.amount, "Settle amount");
       const payment = await publicClient.readContract({
-        address: diamondAddress,
+        address: diamondAddressHex,
         abi: futuresFacetAbi,
         functionName: "previewSettlePayment",
         args: [seriesId, amount],
@@ -725,7 +729,7 @@ export default function DerivativesPage() {
     }
   };
 
-  const readyStatus = diamondAddress
+  const readyStatus = diamondAddressHex
     ? "Wallet write flows ready"
     : "Set diamondAddress in NEXT_PUBLIC_POOLS_CONFIG_FOUNDRY/ROBINHOOD_TESTNET/TESTNET";
 
