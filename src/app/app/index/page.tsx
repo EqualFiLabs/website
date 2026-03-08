@@ -38,6 +38,7 @@ import {
 const normalizeAddress = (value: any) => (value ? value.toLowerCase() : '')
 const toBigInt = (value: any) => (typeof value === 'bigint' ? value : BigInt(value ?? 0))
 const sumBigInt = (values: bigint[]) => values.reduce((acc, value) => acc + toBigInt(value), 0n)
+const ROBINHOOD_TESTNET_CHAIN_ID = 46630
 type IndexLoanStatus = {
   available: boolean
   reason?: string
@@ -68,6 +69,7 @@ export default function IndexPage() {
   const positionNFTAddress = (poolsConfig.positionNFTAddress || '').trim()
   const activeChainId = publicClient?.chain?.id ?? null
   const nativeSymbol = publicClient?.chain?.nativeCurrency?.symbol || 'ETH'
+  const indexLendingComingSoon = activeChainId !== ROBINHOOD_TESTNET_CHAIN_ID
   const diamondAddressLower = diamondAddress.toLowerCase()
 
   console.log('[Index] poolsConfig:', poolsConfig)
@@ -2081,7 +2083,8 @@ export default function IndexPage() {
           </div>
         </div>
 
-        <section className="w-full rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card">
+        <section className="relative w-full rounded-3xl border border-surface2 bg-surface1 p-6 shadow-card">
+          <div className={indexLendingComingSoon ? 'pointer-events-none opacity-55' : ''}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-neutral3">Index Lending</p>
@@ -2416,6 +2419,15 @@ export default function IndexPage() {
               <p className="mt-4 text-xs text-neutral3">Load a loan ID to repay, extend, or recover.</p>
             )}
           </div>
+          </div>
+          {indexLendingComingSoon ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl border border-white/10 bg-black/25 backdrop-blur-[1px]">
+              <div className="rounded-2xl border border-white/20 bg-black/45 px-6 py-4 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-neutral3">Index Lending</p>
+                <p className="mt-1 text-2xl font-bold uppercase tracking-[0.12em] text-neutral1">Coming Soon</p>
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
 
