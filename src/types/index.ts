@@ -66,6 +66,27 @@ export interface IlmIsolatedMarketConfig {
   moduleId?: string | number;
 }
 
+export interface IlmPooledMarketConfig {
+  id: string;
+  name?: string;
+  marketId: string | number;
+  loanPoolId: number;
+  collateralPoolId: number;
+  moduleId?: string | number;
+}
+
+export interface PerpsMarketConfig {
+  id: string;
+  name?: string;
+  marketId?: string;
+  collateralPoolId: number;
+  collateralAsset?: string;
+  indexAsset: string;
+  feePoolId?: number;
+  defaultMaxSlippageBps?: number;
+  defaultExecutorFee?: string | number;
+}
+
 export interface PoolsConfig {
   diamondAddress: string;
   positionNFTAddress: string;
@@ -73,6 +94,8 @@ export interface PoolsConfig {
   pools: PoolConfig[];
   indexTokens: IndexToken[];
   ilmIsolatedMarkets?: IlmIsolatedMarketConfig[];
+  ilmPooledMarkets?: IlmPooledMarketConfig[];
+  perpsMarkets?: PerpsMarketConfig[];
 }
 
 export interface IndexToken {

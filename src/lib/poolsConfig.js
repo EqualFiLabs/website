@@ -1,6 +1,6 @@
 import rawPoolsConfig from "./pools.json";
 
-const EMPTY_CONFIG = { pools: [], indexTokens: [], ilmIsolatedMarkets: [] };
+const EMPTY_CONFIG = { pools: [], indexTokens: [], ilmIsolatedMarkets: [], ilmPooledMarkets: [], perpsMarkets: [] };
 const FOUNDRY_CHAIN_ID = 31337;
 const ROBINHOOD_TESTNET_CHAIN_ID = 46630;
 
@@ -30,6 +30,10 @@ const mergePoolsConfig = (baseConfig, overrideConfig) => {
     ilmIsolatedMarkets: Array.isArray(overrideConfig.ilmIsolatedMarkets)
       ? overrideConfig.ilmIsolatedMarkets
       : baseConfig.ilmIsolatedMarkets,
+    ilmPooledMarkets: Array.isArray(overrideConfig.ilmPooledMarkets)
+      ? overrideConfig.ilmPooledMarkets
+      : baseConfig.ilmPooledMarkets,
+    perpsMarkets: Array.isArray(overrideConfig.perpsMarkets) ? overrideConfig.perpsMarkets : baseConfig.perpsMarkets,
   };
 };
 

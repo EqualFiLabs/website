@@ -79,7 +79,9 @@
         "lendingPoolAddress": "0x6d4d3804be8d213c541f5a0cb64e18ce4bfb7433"
       }
     ],
-    "ilmIsolatedMarkets": []
+    "ilmIsolatedMarkets": [],
+    "ilmPooledMarkets": [],
+    "perpsMarkets": []
   },
   "testnets": {
     "diamondAddress": "0x027c9ba58be0af69c990da55630d9042d067652b",
@@ -161,7 +163,9 @@
         "lendingPoolAddress": "0x027c9ba58be0af69c990da55630d9042d067652b"
       }
     ],
-    "ilmIsolatedMarkets": []
+    "ilmIsolatedMarkets": [],
+    "ilmPooledMarkets": [],
+    "perpsMarkets": []
   },
   "robinhoodTestnet": {
     "diamondAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA",
@@ -378,6 +382,8 @@
         "lendingPoolAddress": "0xf85E0456C59472937484a3C2E6F9180853676efA"
       }
     ],
-    "ilmIsolatedMarkets": []
+    "ilmIsolatedMarkets": [],
+    "ilmPooledMarkets": [],
+    "perpsMarkets": []
   }
 }

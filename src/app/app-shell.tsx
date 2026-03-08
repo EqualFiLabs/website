@@ -5,23 +5,30 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useState, useEffect } from "react";
 
-const NAV_LINKS = [
+const PRIMARY_NAV_LINKS = [
   { href: "/app/position", label: "Position" },
   { href: "/app/swap", label: "Swap" },
-  { href: "/app/auctions", label: "Auctions" },
-  { href: "/app/mam-curves", label: "MAM Curves" },
-  { href: "/app/derivatives", label: "Derivatives" },
   { href: "/app/credit", label: "Credit" },
-  { href: "/app/ilm-isolated", label: "ILM Isolated" },
   { href: "/app/index", label: "Index" },
-  { href: "/app/agents", label: "Agents" },
+  { href: "/app/agents", label: "Agent" },
   { href: "/app/tools", label: "Tools" },
   { href: "/app/faucet", label: "Faucet" },
 ];
 
+const COMING_SOON_NAV_LINKS = [
+  { href: "/app/derivatives", label: "Derivatives" },
+  { href: "/app/perps", label: "Perps" },
+  { href: "/app/ilm-isolated", label: "ILM Isolated" },
+  { href: "/app/ilm-pooled", label: "ILM Pooled" },
+  { href: "/app/mam-curves", label: "MAM Curves" },
+];
+
+const COMING_SOON_ROUTES = COMING_SOON_NAV_LINKS.map((link) => link.href);
+
 export function AppShell({ children, title }: { children: React.ReactNode; title?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const isComingSoonPage = COMING_SOON_ROUTES.some((route) => pathname?.startsWith(route));
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
@@ -40,7 +47,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 no-scrollbar">
-          {NAV_LINKS.map((link) => {
+          {PRIMARY_NAV_LINKS.map((link) => {
             const isActive = pathname?.startsWith(link.href);
             return (
               <Link
@@ -51,7 +58,26 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
                   : "text-gray-400 hover:text-white border-transparent hover:bg-white/5 card-glow"
                   }`}
               >
-                <span className="ml-2 transition-all">// {link.label}</span>
+                <span className="ml-2 transition-all">{`// ${link.label}`}</span>
+                {isActive && (
+                  <span className="w-2 h-2 rounded-full bg-accent1 shadow-[0_0_10px_#14f195]" />
+                )}
+              </Link>
+            );
+          })}
+          <div className="my-2 border-t border-white/10" />
+          {COMING_SOON_NAV_LINKS.map((link) => {
+            const isActive = pathname?.startsWith(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative flex items-center justify-between px-4 py-3 rounded-full text-sm tracking-widest transition-all duration-300 uppercase border ${isActive
+                  ? "bg-white/5 text-white font-bold border-accent1/50 shadow-[0_0_15px_rgba(20,241,149,0.4)]"
+                  : "text-gray-400 hover:text-white border-transparent hover:bg-white/5 card-glow"
+                  }`}
+              >
+                <span className="ml-2 transition-all">{`// ${link.label}`}</span>
                 {isActive && (
                   <span className="w-2 h-2 rounded-full bg-accent1 shadow-[0_0_10px_#14f195]" />
                 )}
@@ -107,8 +133,20 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
 
         {/* SCROLLABLE MAIN CONTENT */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto w-full pb-20">
-          <div className="p-4 md:p-8 lg:p-12 max-w-7xl mx-auto flex flex-col gap-12 w-full min-h-full">
-            {children}
+          <div className="relative p-4 md:p-8 lg:p-12 max-w-7xl mx-auto flex flex-col gap-12 w-full min-h-full">
+            <div className={isComingSoonPage ? "opacity-70 pointer-events-none select-none" : ""}>
+              {children}
+            </div>
+            {isComingSoonPage && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl border border-white/10 bg-black/20">
+                <div className="text-center px-6 py-8 rounded-2xl border border-white/20 bg-black/35">
+                  <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Preview</p>
+                  <h2 className="mt-2 text-3xl md:text-5xl font-bold uppercase tracking-[0.18em] text-white">
+                    Coming Soon
+                  </h2>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -135,7 +173,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
 
           <nav className="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-4">
             <div className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2 pl-2">Navigation</div>
-            {NAV_LINKS.map((link) => {
+            {PRIMARY_NAV_LINKS.map((link) => {
               const isActive = pathname?.startsWith(link.href);
               return (
                 <Link
@@ -147,7 +185,27 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
                     : "text-gray-400 border-transparent card-glow hover:text-white hover:bg-white/5"
                     }`}
                 >
-                  <span className="ml-2 transition-all">// {link.label}</span>
+                  <span className="ml-2 transition-all">{`// ${link.label}`}</span>
+                  {isActive && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-accent1 shadow-[0_0_12px_#14f195]" />
+                  )}
+                </Link>
+              )
+            })}
+            <div className="my-2 border-t border-white/10" />
+            {COMING_SOON_NAV_LINKS.map((link) => {
+              const isActive = pathname?.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`relative flex items-center justify-between px-6 py-4 rounded-full text-lg tracking-wider uppercase border ${isActive
+                    ? "bg-white/5 text-white font-bold border-accent1/50 shadow-[0_0_20px_rgba(20,241,149,0.4)]"
+                    : "text-gray-400 border-transparent card-glow hover:text-white hover:bg-white/5"
+                    }`}
+                >
+                  <span className="ml-2 transition-all">{`// ${link.label}`}</span>
                   {isActive && (
                     <span className="w-2.5 h-2.5 rounded-full bg-accent1 shadow-[0_0_12px_#14f195]" />
                   )}

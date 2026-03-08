@@ -209,8 +209,64 @@ test("resolver merges partial env overrides and keeps base pools/index tokens", 
     assert.equal(testnetConfig.diamondAddress, "0xdddddddddddddddddddddddddddddddddddddddd");
     assert.equal(testnetConfig.pools.length, pools.testnets.pools.length);
     assert.equal(testnetConfig.indexTokens.length, pools.testnets.indexTokens.length);
+    assert.equal(testnetConfig.ilmPooledMarkets.length, pools.testnets.ilmPooledMarkets.length);
+    assert.equal(testnetConfig.perpsMarkets.length, pools.testnets.perpsMarkets.length);
   } finally {
     if (previousTestnet === undefined) delete process.env.NEXT_PUBLIC_POOLS_CONFIG_TESTNET;
     else process.env.NEXT_PUBLIC_POOLS_CONFIG_TESTNET = previousTestnet;
+  }
+});
+
+test("resolver accepts robinhood ilm pooled market overrides", async () => {
+  const resolvePoolsConfig = await loadResolvePoolsConfig();
+  const previousRobinhood = process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET;
+
+  process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET = JSON.stringify({
+    ilmPooledMarkets: [
+      {
+        id: "pooled-usdc-weth",
+        marketId: 1,
+        loanPoolId: 5,
+        collateralPoolId: 4,
+        moduleId: 8100,
+      },
+    ],
+  });
+
+  try {
+    const robinhoodConfig = resolvePoolsConfig(46630);
+    assert.equal(robinhoodConfig.ilmPooledMarkets.length, 1);
+    assert.equal(robinhoodConfig.ilmPooledMarkets[0].id, "pooled-usdc-weth");
+    assert.equal(robinhoodConfig.ilmPooledMarkets[0].marketId, 1);
+  } finally {
+    if (previousRobinhood === undefined) delete process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET;
+    else process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET = previousRobinhood;
+  }
+});
+
+test("resolver accepts robinhood perps market overrides", async () => {
+  const resolvePoolsConfig = await loadResolvePoolsConfig();
+  const previousRobinhood = process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET;
+
+  process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET = JSON.stringify({
+    perpsMarkets: [
+      {
+        id: "rh-usdc-amzn",
+        collateralPoolId: 5,
+        collateralAsset: "0x9d67E306479B14239774146fe8e16EBD0357440A",
+        indexAsset: "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02",
+        feePoolId: 5,
+      },
+    ],
+  });
+
+  try {
+    const robinhoodConfig = resolvePoolsConfig(46630);
+    assert.equal(robinhoodConfig.perpsMarkets.length, 1);
+    assert.equal(robinhoodConfig.perpsMarkets[0].id, "rh-usdc-amzn");
+    assert.equal(robinhoodConfig.perpsMarkets[0].collateralPoolId, 5);
+  } finally {
+    if (previousRobinhood === undefined) delete process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET;
+    else process.env.NEXT_PUBLIC_POOLS_CONFIG_ROBINHOOD_TESTNET = previousRobinhood;
   }
 });

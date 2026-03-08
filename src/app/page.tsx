@@ -97,32 +97,31 @@ export default function Home() {
         {/* HOW IT WORKS */}
         <section className="mt-16 border-t border-white/20 pt-10">
           <h2 className="text-sm font-mono uppercase tracking-[0.2em] text-gray-500 mb-6">
-            // HOW_EQUALIS_CORE_WORKS
+            // THE_ON-CHAIN_PRIME_BROKERAGE
           </h2>
 
           <div className="grid md:grid-cols-3 gap-8">
             <div className="space-y-3">
-              <div className="font-mono text-xs text-gray-500">[01] DEPOSIT</div>
-              <h3 className="text-lg font-bold uppercase tracking-tight">Lossless</h3>
+              <div className="font-mono text-xs text-gray-500">[01] SOVEREIGN CUSTODY</div>
+              <h3 className="text-lg font-bold uppercase tracking-tight">The Position NFT</h3>
               <p className="text-sm text-gray-400 font-mono leading-relaxed">
-                Your deposit is never at risk unless you decide to opt-in. Earn from providing flashloan liquidity and protocol revenue.
+                You don&apos;t deposit into a black box. Your capital lives in your Position NFT. You are your own custodian, your own clearinghouse, and your own risk manager.
               </p>
             </div>
 
             <div className="space-y-3">
-              <div className="font-mono text-xs text-gray-500">[02] CREDIT</div>
-              <h3 className="text-lg font-bold uppercase tracking-tight">0% Interest</h3>
+              <div className="font-mono text-xs text-gray-500">[02] DETERMINISTIC ENCUMBRANCE</div>
+              <h3 className="text-lg font-bold uppercase tracking-tight">No Rehypothecation</h3>
               <p className="text-sm text-gray-400 font-mono leading-relaxed">
-                Self Secured 0% interest credit that earns yield. The Active Credit Index pays active capital from protocol revenue.
+                The shell game is dead. Capital doesn&apos;t move—it gets mathematically assigned. One deposit can back lending, collateralize derivatives, and provide AMM liquidity simultaneously.
               </p>
             </div>
 
             <div className="space-y-3">
-              <div className="font-mono text-xs text-gray-500">[03] SOLVENCY</div>
-              <h3 className="text-lg font-bold uppercase tracking-tight">Cash-Flow First</h3>
+              <div className="font-mono text-xs text-gray-500">[03] UNIVERSAL YIELD</div>
+              <h3 className="text-lg font-bold uppercase tracking-tight">Ecosystem Capture</h3>
               <p className="text-sm text-gray-400 font-mono leading-relaxed">
-                Solvency is defined by cash flow, not price wicks. As long as you pay the fee,
-                your position cannot be nuked by oracle noise or MEV games.
+                Every module built on Equalis—OTC swaps, options, credit lines, and flash loans—routes fees back to the same rail. Your capital earns yield from the entire ecosystem&apos;s velocity.
               </p>
             </div>
           </div>
@@ -131,38 +130,34 @@ export default function Home() {
         {/* PHYSICS VS NARRATIVE */}
         <section className="mt-20 border-t border-white/20 pt-10">
           <h2 className="text-sm font-mono uppercase tracking-[0.2em] text-gray-500 mb-6">
-            // PROTOCOL_PHYSICS_VS_MARKET_STORY
+            // ARCHITECTURAL_SUPERIORITY
           </h2>
 
           <div className="grid gap-x-8 gap-y-3 text-sm font-mono text-gray-300 md:grid-cols-3">
-            <div className="text-xs text-gray-500 md:row-start-1 md:col-start-1">ORACLES</div>
+            <div className="text-xs text-gray-500 md:row-start-1 md:col-start-1">ENCUMBRANCE</div>
             <p className="text-gray-500 md:row-start-2 md:col-start-1">
-              Incumbents: price feeds decide when you die and can be victims of manipulation.
+              Incumbents: Your capital is rehypothecated into the dark. It leaves your control to generate yield for the protocol.
             </p>
             <p className="md:row-start-3 md:col-start-1">
-              Equalis: solvency is a function of cash flow and encumbrance, not spot price
-              noise. Wicks can&apos;t liquidate you; only failing flows can.
+              Equalis: Your capital never moves. It gets explicitly assigned via encumbrance. One deposit can back lending, serve as collateral, and provide AMM liquidity—simultaneously.
             </p>
 
-            <div className="text-xs text-gray-500 md:row-start-1 md:col-start-2">INTEREST</div>
+            <div className="text-xs text-gray-500 md:row-start-1 md:col-start-2">CREDIT</div>
             <p className="text-gray-500 md:row-start-2 md:col-start-2">
-              Incumbents: utilization curves price your loan based on pool dynamics you don&apos;t
-              control and can&apos;t predict.
+              Incumbents: Utilization curves extract wealth based on pool dynamics you don&apos;t
+              control. You pay rent on your own money.
             </p>
             <p className="md:row-start-3 md:col-start-2">
-              Equalis: self-secured credit is 0%. No spread to extract. No curve to game. You
-              pay explicit fees for explicit actions, not rent for existing.
+              Equalis: Borrowing against your own deposits is 0%. No spread to extract. No curve to game. You
+              pay explicit fees for explicit actions.
             </p>
 
-            <div className="text-xs text-gray-500 md:row-start-1 md:col-start-3">MEV</div>
+            <div className="text-xs text-gray-500 md:row-start-1 md:col-start-3">RISK</div>
             <p className="text-gray-500 md:row-start-2 md:col-start-3">
-              Incumbents: your collateral is auctioned to the fastest bot during the worst
-              possible moment and is an MEV playground.
+              Incumbents: Risk is socialized. A bad debt in a siloed market can drain the entire protocol.
             </p>
             <p className="md:row-start-3 md:col-start-3">
-              Equalis: there is no liquidation engine because there is nothing to liquidate.
-              Self-secured debt is denominated in what you deposited. Default is a missed
-              obligation, not a price movement.
+              Equalis: Risk is strictly deterministic. Your Position NFT isolates your exposure. Default is a missed, pre-defined obligation, not a contagion event.
             </p>
           </div>
         </section>
@@ -213,18 +208,18 @@ export default function Home() {
       <footer className="grid grid-cols-1 md:grid-cols-3 border-t border-white/20 divide-y md:divide-y-0 md:divide-x divide-white/20 bg-black">
         <Feature
           num="01"
-          title="DETERMINISTIC"
-          desc="Solvency defined by cash flow, not price wicks. No Oracles. No fragility."
+          title="SOVEREIGN"
+          desc="Your Position NFT isolates your risk. No socialized losses. No protocol contagion."
         />
         <Feature
           num="02"
-          title="YIELD_OPTIMIZED"
-          desc="Self-secured 0% interest borrowing that earns yield powered by protocol revenue. Maximize capital efficiency."
+          title="DETERMINISTIC"
+          desc="Capital is encumbered, not rehypothecated. One deposit. Infinite utility."
         />
         <Feature
           num="03"
-          title="MODULAR_CORE"
-          desc="A unified liquidity layer that can support any venue. The foundation not the casino."
+          title="UNIVERSAL"
+          desc="A unified liquidity layer where every module pays rent to the depositors."
         />
       </footer>
     </div>

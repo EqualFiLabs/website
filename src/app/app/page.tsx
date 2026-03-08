@@ -10,8 +10,8 @@ export default function AppIndex() {
       <p className="text-sm text-gray-400 font-mono max-w-2xl">
         Choose an execution surface.
       </p>
-      <section className="grid gap-6 md:grid-cols-6">
-        <Link href="/app/position" className="h-full md:col-span-2">
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <Link href="/app/position" className="h-full">
           <Card>
             <SectionHeader title="POSITION" subtitle="NFT management" />
             <p className="text-xs font-mono text-gray-400 mt-4">
@@ -19,7 +19,7 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/swap" className="h-full md:col-span-2">
+        <Link href="/app/swap" className="h-full">
           <Card>
             <SectionHeader title="SWAP" subtitle="Unified AMM auctions" />
             <p className="text-xs font-mono text-gray-400 mt-4">
@@ -27,7 +27,7 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/auctions" className="h-full md:col-span-2">
+        <Link href="/app/auctions" className="h-full">
           <Card>
             <SectionHeader title="AUCTIONS" subtitle="Create + manage" />
             <p className="text-xs font-mono text-gray-400 mt-4">
@@ -35,7 +35,7 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/derivatives" className="h-full md:col-span-2">
+        <Link href="/app/derivatives" className="h-full">
           <Card>
             <SectionHeader title="DERIVATIVES" subtitle="Options + futures" />
             <p className="text-xs font-mono text-gray-400 mt-4">
@@ -43,7 +43,15 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/credit" className="h-full md:col-span-2 md:col-start-3">
+        <Link href="/app/perps" className="h-full">
+          <Card>
+            <SectionHeader title="PERPS" subtitle="Isolated perpetuals" />
+            <p className="text-xs font-mono text-gray-400 mt-4">
+              Create accounts, post collateral, and execute long/short perps actions.
+            </p>
+          </Card>
+        </Link>
+        <Link href="/app/credit" className="h-full">
           <Card>
             <SectionHeader title="CREDIT" subtitle="Borrowing console" />
             <p className="text-xs font-mono text-gray-400 mt-4">
@@ -51,7 +59,7 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/ilm-isolated" className="h-full md:col-span-2">
+        <Link href="/app/ilm-isolated" className="h-full">
           <Card>
             <SectionHeader title="ILM ISOLATED" subtitle="Market-based lending" />
             <p className="text-xs font-mono text-gray-400 mt-4">
@@ -59,7 +67,15 @@ export default function AppIndex() {
             </p>
           </Card>
         </Link>
-        <Link href="/app/index" className="h-full md:col-span-2 md:col-start-5">
+        <Link href="/app/ilm-pooled" className="h-full">
+          <Card>
+            <SectionHeader title="ILM POOLED" subtitle="Shared liquidity lending" />
+            <p className="text-xs font-mono text-gray-400 mt-4">
+              Pooled market supply, collateral, borrow, and repay operations.
+            </p>
+          </Card>
+        </Link>
+        <Link href="/app/index" className="h-full">
           <Card>
             <SectionHeader title="INDEX" subtitle="Mint + burn" />
             <p className="text-xs font-mono text-gray-400 mt-4">
